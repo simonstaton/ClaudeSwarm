@@ -52,3 +52,28 @@ body {
 .status-pulse {
   animation: pulse-dot 2s ease-in-out infinite;
 }
+
+/* Fix @fanvue/ui typography utilities - replace bare "Inter" with proper font-family including fallbacks */
+.typography-body-1-regular,
+.typography-body-1-medium,
+.typography-body-1-semibold,
+.typography-body-2-regular,
+.typography-body-2-medium,
+.typography-body-2-semibold,
+.typography-button-large,
+.typography-button-small,
+.typography-link-large,
+.typography-link-small,
+.typography-link-x-small,
+.typography-caption-regular,
+.typography-caption-semibold,
+.typography-subtitle,
+.typography-heading-4,
+.typography-heading-3,
+.typography-heading-32,
+.typography-heading-2,
+.typography-heading-1,
+.typography-hero,
+.typography-badge {
+  font-family: var(--font-sans) !important;
+}
