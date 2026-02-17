@@ -28,6 +28,7 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
   if (events.length > cached.upTo) {
     const newBlocks = parseEvents(events, cached.upTo);
     cached.blocks = cached.blocks.concat(newBlocks);
+    cached.blocks = deduplicateResultBlocks(cached.blocks);
     cached.upTo = events.length;
   }
   const blocks = cached.blocks;
@@ -276,6 +277,40 @@ function parseEvents(events: StreamEvent[], startIdx = 0): TerminalBlock[] {
     }
   }
 
+  return blocks;
+}
+
+/**
+ * Remove trailing text blocks that duplicate a result block's content.
+ * Claude emits an "assistant" event (rendered as white text) followed by a
+ * "result" event (rendered as green) containing the same response text.
+ * This function removes the white text blocks so the response only appears
+ * once, in green.
+ */
+function deduplicateResultBlocks(blocks: TerminalBlock[]): TerminalBlock[] {
+  for (let i = 0; i < blocks.length; i++) {
+    if (blocks[i].kind !== "result" || !blocks[i].content) continue;
+
+    const resultText = blocks[i].content;
+    // Walk backwards from just before this result to find contiguous text blocks
+    let j = i - 1;
+    while (j >= 0 && blocks[j].kind === "text") {
+      j--;
+    }
+    const textStart = j + 1;
+    if (textStart >= i) continue; // no text blocks before this result
+
+    const trailingText = blocks
+      .slice(textStart, i)
+      .map((b) => b.content)
+      .join("");
+    if (resultText === trailingText || resultText.trim() === trailingText.trim()) {
+      // Remove the duplicate text blocks
+      blocks.splice(textStart, i - textStart);
+      // Adjust index since we removed elements
+      i = textStart;
+    }
+  }
   return blocks;
 }
 
