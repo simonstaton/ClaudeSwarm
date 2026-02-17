@@ -24,6 +24,36 @@ interface UseAgentStreamReturn {
 // Older events beyond this limit will be discarded
 const MAX_EVENTS = 5000;
 
+/**
+ * Create a fingerprint for a StreamEvent to detect duplicates.
+ * Uses type + subtype + content-bearing fields to identify unique events.
+ * Two events with the same fingerprint are considered duplicates.
+ */
+function eventFingerprint(event: StreamEvent): string {
+  const parts = [event.type, event.subtype ?? ""];
+  switch (event.type) {
+    case "result":
+      parts.push(String(event.result ?? ""), String(event.duration_ms ?? ""), String(event.num_turns ?? ""));
+      break;
+    case "user_prompt":
+      parts.push(String(event.text ?? ""));
+      break;
+    case "assistant":
+      // Use stringified message content for assistant events
+      parts.push(JSON.stringify(event.message ?? ""));
+      break;
+    case "system":
+      parts.push(String(event.session_id ?? ""), String(event.message ?? event.text ?? ""));
+      break;
+    case "done":
+      parts.push(String(event.exitCode ?? ""));
+      break;
+    default:
+      parts.push(String(event.text ?? event.content ?? ""));
+  }
+  return parts.join("\0");
+}
+
 /** Abort and clean up all stream resources. */
 function cleanupStream(
   abortRef: React.MutableRefObject<(() => void) | null>,
@@ -57,6 +87,10 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
   // Used to request only new events on auto-retry reconnects, preventing
   // the full history from replaying and causing stale responses to flash.
   const serverEventCountRef = useRef(0);
+  // Set of event fingerprints for deduplication. When events arrive from
+  // different stream paths (reconnect vs message), the same persisted event
+  // can be delivered twice. This set lets us skip duplicates.
+  const seenFingerprintsRef = useRef(new Set<string>());
 
   // Keep agentId ref current for retry callbacks
   // When agentId changes, immediately abort streams and clear state
@@ -76,6 +110,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
       setIsStreaming(false);
       setError(null);
       serverEventCountRef.current = 0;
+      seenFingerprintsRef.current.clear();
       retryCountRef.current = 0;
     }
   }, [agentId]);
@@ -99,6 +134,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
         // Full reconnect — clear existing events since the server replays full history
         setEvents([]);
         serverEventCountRef.current = 0;
+        seenFingerprintsRef.current.clear();
       }
 
       (async () => {
@@ -114,11 +150,18 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
             // Only add events if we're still viewing this agent
             if (agentIdRef.current === id) {
               serverEventCountRef.current++;
-              setEvents((prev) => {
-                const updated = [...prev, value];
-                // Limit array size to prevent memory leak with long-running agents
-                return updated.length > MAX_EVENTS ? updated.slice(-MAX_EVENTS) : updated;
-              });
+              // Deduplicate: skip events we've already seen (can happen when
+              // an incremental reconnect replays events the client received
+              // through a previous message or reconnect stream)
+              const fp = eventFingerprint(value);
+              if (!seenFingerprintsRef.current.has(fp)) {
+                seenFingerprintsRef.current.add(fp);
+                setEvents((prev) => {
+                  const updated = [...prev, value];
+                  // Limit array size to prevent memory leak with long-running agents
+                  return updated.length > MAX_EVENTS ? updated.slice(-MAX_EVENTS) : updated;
+                });
+              }
             } else {
               // Agent switched — cancel the reader which propagates to the
               // underlying fetch body, closing the server-side SSE connection
@@ -172,11 +215,18 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
           if (agentIdRef.current === agentId) {
             // Track server events so auto-retry reconnects can skip them
             serverEventCountRef.current++;
-            setEvents((prev) => {
-              const updated = [...prev, value];
-              // Limit array size to prevent memory leak with long-running agents
-              return updated.length > MAX_EVENTS ? updated.slice(-MAX_EVENTS) : updated;
-            });
+            // Deduplicate: skip events already in the terminal (can happen
+            // when a reconnect replays events the message stream already
+            // delivered, or vice versa)
+            const fp = eventFingerprint(value);
+            if (!seenFingerprintsRef.current.has(fp)) {
+              seenFingerprintsRef.current.add(fp);
+              setEvents((prev) => {
+                const updated = [...prev, value];
+                // Limit array size to prevent memory leak with long-running agents
+                return updated.length > MAX_EVENTS ? updated.slice(-MAX_EVENTS) : updated;
+              });
+            }
           } else {
             // Agent switched — abort the fetch to close the server-side SSE
             // connection and free the listener from agentProc.listeners
@@ -231,6 +281,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
   const clearEvents = useCallback(() => {
     setEvents([]);
     setError(null);
+    seenFingerprintsRef.current.clear();
   }, []);
 
   const injectEvent = useCallback((event: StreamEvent) => {
