@@ -17,10 +17,17 @@ export function generateWorkspaceClaudeMd(opts: WorkspaceClaudeMdOptions): strin
           .join("\n")}\n`
       : "**No other agents currently active.**\n";
 
+  const repoDescriptions: Record<string, string> = {
+    "ClaudeSwarm_PRIVATE.git":
+      "Private repo — primary development target. All PRs, branches, and code changes go here.",
+    "ClaudeSwarm.git":
+      "Public repo — public mirror of the private repo. Kept in sync by force-pushing private main → public main during releases. **Never commit directly to this repo.**",
+  };
+
   const reposSection =
     opts.repoList.length > 0
       ? `\n## Persistent Repos
-${opts.repoList.map((r) => `- \`${r}\``).join("\n")}
+${opts.repoList.map((r) => `- \`${r}\`${repoDescriptions[r] ? ` — ${repoDescriptions[r]}` : ""}`).join("\n")}
 For usage instructions (worktrees, cloning, tools) → read \`shared-context/guides/persistent-storage.md\`
 `
       : "";
