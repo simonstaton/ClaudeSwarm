@@ -166,7 +166,7 @@ Agent state is automatically saved to GCS and restored on container restart, so 
 | GET | `/api/settings` | Get current settings (key hint, available models) |
 | PUT | `/api/settings/anthropic-key` | Switch Anthropic API key at runtime |
 
-### Kill Switch (Planned)
+### Kill Switch
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/kill-switch` | Activate or deactivate (`{ action: "activate" \| "deactivate", reason? }`) |
@@ -203,17 +203,17 @@ Built-in safeguards:
 
 - JWT authentication required for all API access
 - Agent tool allowlist (configurable in guardrails)
-- Blocked command patterns (prevents destructive operations like `rm -rf /`)
+- Blocked command patterns (prevents destructive operations like `rm -rf /`, `gh pr merge`, `gcloud deploy`, `terraform apply`, `git push --force`)
 - Memory pressure monitoring (rejects new agents at 85% memory)
 - Rate limiting on API endpoints
 - 1-hour session TTL with automatic cleanup
 - Max 20 concurrent agents per container
+- Max agent spawn depth of 3 and max 6 children per agent (prevents recursive swarm explosions)
+- Emergency kill switch — instantly halts all agents, rotates JWT secret, and persists state to GCS
 
 For production deployments, run behind a reverse proxy with additional network-level controls. See SECURITY.md for vulnerability reporting.
 
-## Kill Switch (Planned)
-
-> **Note:** The kill switch is not yet implemented. See `plans/kill-switch-implementation.md` for the full design. The implementation below describes the planned behavior.
+## Kill Switch
 
 ### Why this exists
 
@@ -239,8 +239,8 @@ The kill switch is a multi-layered emergency stop:
 - Workspaces are wiped
 
 **Layer 3 — Token invalidation**
-- The JWT secret will be rotated on activation, instantly invalidating every existing token
-- Agent service tokens will be shortened to match the session TTL (currently 7 days — to be reduced)
+- The JWT secret is rotated on activation (and again on deactivation), instantly invalidating every existing token
+- Agent service tokens have a 4-hour lifetime (down from 7 days)
 
 **Layer 4 — Spawning limits**
 - Max agent depth of 3 (agents spawning agents spawning agents... stops there)
@@ -272,7 +272,7 @@ If you notice runaway agent behavior:
 1. **Hit the kill switch** — UI panic button or `POST /api/kill-switch`
 2. **Revoke external tokens** — rotate your GitHub PAT, Anthropic API key, and any MCP credentials
 3. **Check for damage** — review merged PRs, deployed services, and GCP resource creation
-4. **Review GCS** — check `/persistent/tools/` and shared-context for any payloads agents may have left behind
+4. **Review GCS** — check shared-context for any payloads agents may have left behind
 5. **If the API is unreachable** — upload the kill switch file to GCS, or delete the Cloud Run service entirely:
    ```bash
    gcloud run services delete claude-swarm --region=$REGION
