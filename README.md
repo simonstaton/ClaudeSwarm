@@ -2,6 +2,10 @@
   <img src="assets/banner.png" alt="ClaudeSwarm — Multi-Agent Orchestration with Claude">
 </p>
 
+<p align="center">
+  <img src="assets/kill-switch-dialog.png" alt="Emergency Kill Switch Dialog" width="600">
+</p>
+
 # Claude Swarm Platform
 
 A self-hosted orchestration platform for running coordinated Claude agents at scale — with real-time visibility, persistent memory, and production-ready deployment on Google Cloud Run.
