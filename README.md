@@ -2,15 +2,23 @@
   <img src="assets/banner.png" alt="ClaudeSwarm — Multi-Agent Orchestration with Claude">
 </p>
 
-<p align="center">
-  <img src="assets/kill-switch-dialog.png" alt="Emergency Kill Switch Dialog" width="600">
-</p>
-
 # Claude Swarm Platform
 
-[![Watch the demo](https://img.youtube.com/vi/DH0m6MiIS-U/maxresdefault.jpg)](https://youtu.be/DH0m6MiIS-U)
-
 A self-hosted orchestration platform for running coordinated Claude agents at scale — with real-time visibility, persistent memory, and production-ready deployment on Google Cloud Run.
+
+<p align="center">
+  <a href="https://youtu.be/9u5xTo-NvIM">
+    <img src="https://img.youtube.com/vi/9u5xTo-NvIM/maxresdefault.jpg" alt="Watch the demo" width="80%">
+  </a>
+  <br>
+  <a href="https://youtu.be/9u5xTo-NvIM"><strong>▶ Watch the demo on YouTube</strong></a>
+</p>
+
+<p align="center">
+  <img src="assets/screenshot-shared-context.png" alt="Shared Context & Agent Management" width="32%">
+  <img src="assets/screenshot-kill-switch.png" alt="Emergency Kill Switch" width="32%">
+  <img src="assets/screenshot-agent-chat.png" alt="Agent Chat & Task Execution" width="32%">
+</p>
 
 ## Quick start (local)
 
