@@ -1,6 +1,6 @@
 # Linear Integration
 
-Query and manage Linear issues using the GraphQL API. The `LINEAR_API_KEY` env var is pre-configured.
+**Try MCP tools first** — Linear MCP is configured with token auth and should be available as native tools in your session. Only use the GraphQL API examples below as a fallback if MCP tools aren't loading.
 
 ## Quick Start
 

@@ -1,6 +1,6 @@
 # Figma Integration
 
-Access Figma designs using the REST API. The `FIGMA_TOKEN` env var is pre-configured.
+**Try MCP tools first** — Figma MCP is configured with token auth and should be available as native tools in your session (e.g. `mcp__figma__...`). Only use the REST API examples below as a fallback if MCP tools aren't loading.
 
 ## Quick Start
 

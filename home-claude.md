@@ -2,12 +2,14 @@
 
 ## MCP & Integrations (REQUIRED)
 
-Before using any external tool or integration (Linear, Figma, GitHub, etc.), ALWAYS read the corresponding command file in `commands/` first:
-- **Linear**: `/linear` — uses `LINEAR_API_KEY` env var with direct GraphQL API (no MCP/OAuth needed)
-- **Figma**: `/figma` — uses `FIGMA_TOKEN` env var
-- **MCP status**: `/mcp` — check which MCP servers are configured and their auth status
+**Figma and Linear are configured as MCP servers with token auth — use MCP tools directly.**
+They should appear as available tools in your session (e.g. Figma tools like `mcp__figma__...`). Just use them. The auth headers are pre-configured.
 
-Do NOT attempt OAuth flows or guess at MCP configuration. The command files have working, copy-paste-ready examples.
+If MCP tools are NOT available in your session (check with `/mcp`), fall back to the API slash commands:
+- **Linear fallback**: `/linear` — direct GraphQL API examples
+- **Figma fallback**: `/figma` — direct REST API examples
+
+Do NOT attempt OAuth flows. Token auth is already configured.
 
 ## Working Memory (REQUIRED)
 

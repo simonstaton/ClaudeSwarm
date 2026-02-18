@@ -81,16 +81,19 @@ for (const [name, config] of Object.entries(mcpServers)) {
 " || echo "Failed to parse MCP settings"
 ```
 
-## Using Linear and Figma
+## Using Figma and Linear
 
-Remote HTTP MCP servers (Linear, Figma) may not appear as native Claude Code tools in headless environments. Use the dedicated slash commands instead:
+**Figma and Linear MCP servers are configured with token auth.** Their tools should be available natively in your Claude Code session. Just use them directly — no extra setup needed.
 
-- **Linear**: Run `/linear` for GraphQL API examples (get issues, search, comment, update status)
-- **Figma**: Run `/figma` for REST API examples (get files, export images, read comments)
+To verify, run the status script above. If it shows `Auth: Token auth` for figma/linear, the MCP tools are ready.
 
-These use API keys (`LINEAR_API_KEY`, `FIGMA_TOKEN`) that are pre-configured in the environment.
+### If MCP tools are not available
 
-**Do NOT try OAuth authentication** — the OAuth callback requires browser access to the server's public URL, which doesn't work from agent sessions.
+If the MCP tools don't appear in your session, use the fallback slash commands which call the APIs directly:
+- **Linear**: `/linear` — GraphQL API examples (get issues, search, comment, update status)
+- **Figma**: `/figma` — REST API examples (get files, export images, read comments)
+
+**Do NOT try OAuth authentication** — it requires browser access and doesn't work from agent sessions.
 
 ## Getting API Tokens
 
@@ -108,6 +111,6 @@ After running the status script above, you'll see:
 - Which MCP servers are currently active
 - Their authentication method (token-based or OAuth)
 
-For Linear and Figma, **always prefer the dedicated slash commands** over trying to use MCP tools directly.
+**Prefer MCP tools** when available. Fall back to `/linear` or `/figma` slash commands only if MCP tools aren't loading.
 
 $ARGUMENTS
