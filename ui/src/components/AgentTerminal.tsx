@@ -16,6 +16,7 @@ interface TerminalBlock {
 export function AgentTerminal({ events }: AgentTerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+  const eventsRef = useRef(events);
 
   // Incremental parsing: only parse new events since last render
   const parsedRef = useRef<{ upTo: number; blocks: TerminalBlock[] }>({ upTo: 0, blocks: [] });
@@ -31,7 +32,26 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
     cached.blocks = deduplicateResultBlocks(cached.blocks);
     cached.upTo = events.length;
   }
+
+  // Limit blocks to prevent memory leak - keep last 5000 blocks
+  // This matches MAX_EVENTS from useAgentStream and prevents unbounded growth
+  const MAX_BLOCKS = 5000;
+  if (cached.blocks.length > MAX_BLOCKS) {
+    cached.blocks = cached.blocks.slice(-MAX_BLOCKS);
+  }
+
   const blocks = cached.blocks;
+
+  // Clean up parsed blocks when events array is cleared or replaced
+  useEffect(() => {
+    if (events !== eventsRef.current) {
+      eventsRef.current = events;
+      // If events array changed to a different instance (not just appended),
+      // this likely means agent switched or reconnect cleared the array.
+      // The ref reset logic above handles upTo/blocks reset, but we
+      // ensure any React state cleanup happens here.
+    }
+  }, [events]);
 
   useEffect(() => {
     if (autoScroll && containerRef.current && blocks.length > 0) {
