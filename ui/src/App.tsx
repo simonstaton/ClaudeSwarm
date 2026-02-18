@@ -1,10 +1,32 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, createContext, type ErrorInfo, type ReactNode, useContext } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
+import { KillSwitchBanner } from "./components/KillSwitchBanner";
+import { type KillSwitchState, useKillSwitch } from "./hooks/useKillSwitch";
 import { AgentView } from "./pages/AgentView";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { Settings } from "./pages/Settings";
+
+// ── Kill switch context — single polling interval shared across all pages ────
+
+interface KillSwitchContextValue {
+  state: KillSwitchState;
+  loading: boolean;
+  error: string | null;
+  activate: (reason?: string) => Promise<void>;
+  deactivate: () => Promise<void>;
+}
+
+const KillSwitchContext = createContext<KillSwitchContextValue | null>(null);
+
+export function useKillSwitchContext(): KillSwitchContextValue {
+  const ctx = useContext(KillSwitchContext);
+  if (!ctx) throw new Error("useKillSwitchContext must be used inside KillSwitchProvider");
+  return ctx;
+}
+
+// ── Error boundary ────────────────────────────────────────────────────────────
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -51,6 +73,33 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Provides a single kill switch polling interval for the entire app.
+ * All pages consume the shared state via useKillSwitchContext() — no per-page polling.
+ */
+function KillSwitchProvider({ children }: { children: React.ReactNode }) {
+  const ks = useKillSwitch();
+  return (
+    <KillSwitchContext.Provider value={ks}>
+      <KillSwitchBanner state={ks.state} loading={ks.loading} onDeactivate={ks.deactivate} />
+      {children}
+    </KillSwitchContext.Provider>
+  );
+}
+
+/** Shared layout: banner + single kill switch poll wrapping all protected pages. */
+function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="h-screen flex flex-col overflow-hidden">
+      <KillSwitchProvider>
+        <div className="flex-1 overflow-hidden">
+          {children}
+        </div>
+      </KillSwitchProvider>
+    </div>
+  );
+}
+
 function AppRoutes() {
   const { token } = useAuth();
 
@@ -61,7 +110,9 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <AppLayout>
+              <Dashboard />
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -69,7 +120,9 @@ function AppRoutes() {
         path="/agents/:id"
         element={
           <ProtectedRoute>
-            <AgentView />
+            <AppLayout>
+              <AgentView />
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -77,7 +130,9 @@ function AppRoutes() {
         path="/settings"
         element={
           <ProtectedRoute>
-            <Settings />
+            <AppLayout>
+              <Settings />
+            </AppLayout>
           </ProtectedRoute>
         }
       />

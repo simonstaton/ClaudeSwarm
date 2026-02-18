@@ -6,6 +6,7 @@ import { Header } from "../components/Header";
 import { MessageFeed } from "../components/MessageFeed";
 import { Sidebar } from "../components/Sidebar";
 import { useApi } from "../hooks/useApi";
+import { useKillSwitchContext } from "../App";
 
 // ── Generic file tree utilities ─────────────────────────────────────────────
 
@@ -221,19 +222,20 @@ export function Settings() {
   const navigate = useNavigate();
   const api = useApi();
   const [agents, setAgents] = useState<Agent[]>([]);
+  const killSwitch = useKillSwitchContext();
 
   useEffect(() => {
     api
       .fetchAgents()
       .then(setAgents)
       .catch((err) => {
-        console.error("Failed to fetch agents:", err);
+        console.error("[Settings] fetchAgents failed", err);
       });
   }, [api]);
 
   return (
     <div className="h-screen flex flex-col">
-      <Header agentCount={agents.length} />
+      <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar agents={agents} activeId={null} onSelect={(id) => navigate(`/agents/${id}`)} />
         <main className="flex-1 overflow-y-auto">
@@ -305,7 +307,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       const text = await api.readContext(name);
       editor.setLoaded(text);
     } catch (err) {
-      console.error("Failed to load context file:", err);
+      console.error("[ContextPanel] loadFile failed", err);
       editor.setLoaded("");
       editor.flashMessage("Failed to load file");
     }
@@ -319,7 +321,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       editor.markSaved();
       refresh();
     } catch (err) {
-      console.error("Failed to save context file:", err);
+      console.error("[ContextPanel] saveFile failed", err);
       editor.flashMessage("Failed to save");
     } finally {
       editor.setSaving(false);
@@ -339,7 +341,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       setSelected(filename);
       editor.setLoaded(initialContent);
     } catch (err) {
-      console.error("Failed to create context file:", err);
+      console.error("[ContextPanel] createFile failed", err);
       editor.flashMessage("Failed to create file");
     }
   };
@@ -354,7 +356,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       }
       refresh();
     } catch (err) {
-      console.error("Failed to delete context file:", err);
+      console.error("[ContextPanel] deleteFile failed", err);
       editor.flashMessage("Failed to delete");
     }
   };
@@ -469,7 +471,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
       const list = await api.listClaudeConfig();
       setFiles(list);
     } catch (err) {
-      console.error("Failed to list Claude config files:", err);
+      console.error("[ConfigPanel] refresh failed", err);
     } finally {
       setLoading(false);
     }
@@ -498,7 +500,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
       const text = await api.readClaudeConfig(file.path);
       editor.setLoaded(text);
     } catch (err) {
-      console.error("Failed to load Claude config file:", err);
+      console.error("[ConfigPanel] loadFile failed", err);
       editor.setLoaded("Failed to load");
     }
   };
@@ -773,7 +775,7 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
       .getSettings()
       .then((s) => setHint(s.anthropicKeyHint))
       .catch((err) => {
-        console.error("Failed to get settings:", err);
+        console.error("[ApiKeyPanel] getSettings failed", err);
       });
   }, [api]);
 
@@ -787,7 +789,7 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
       setMessage("API key updated. New agents will use this key.");
       setTimeout(() => setMessage(""), 4000);
     } catch (err) {
-      console.error("Failed to set Anthropic API key:", err);
+      console.error("[ApiKeyPanel] switchKey failed", err);
       setMessage("Invalid key format (must start with sk-ant-)");
     }
   };

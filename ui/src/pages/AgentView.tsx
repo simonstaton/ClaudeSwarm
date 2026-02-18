@@ -11,6 +11,7 @@ import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useAgentStream } from "../hooks/useAgentStream";
 import { useApi } from "../hooks/useApi";
 import { usePageVisible } from "../hooks/usePageVisible";
+import { useKillSwitchContext } from "../App";
 
 export function AgentView() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,7 @@ export function AgentView() {
   const visible = usePageVisible();
   const [agent, setAgent] = useState<Agent | null>(null);
   const { events, isStreaming, error, sendMessage, reconnect, clearEvents, injectEvent } = useAgentStream(id || null);
+  const killSwitch = useKillSwitchContext();
 
   // Load agent details and reconnect to stream.
   // Use refs for clearEvents/reconnect so this effect only re-runs when `id`
@@ -44,7 +46,7 @@ export function AgentView() {
         clearEventsRef.current();
         reconnectRef.current();
       } catch (err) {
-        console.error("Failed to load agent:", err);
+        console.error("[AgentView] load failed", err);
         if (!cancelled) navigate("/");
       }
     };
@@ -175,7 +177,7 @@ export function AgentView() {
 
   return (
     <div className="h-screen flex flex-col">
-      <Header agentCount={agents.length} />
+      <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar agents={agents} activeId={id || null} onSelect={(agentId) => navigate(`/agents/${agentId}`)} />
 

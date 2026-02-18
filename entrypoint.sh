@@ -66,23 +66,10 @@ if [ -d /persistent ] && mountpoint -q /persistent 2>/dev/null; then
   export SHARED_CONTEXT_DIR=/persistent/shared-context
   echo "Persistent storage (GCS FUSE) active"
 
-  # ── 3b-ii. Create executable shims for /persistent/tools/ ──────────────────
-  # GCS FUSE does not support execute permission bits, so scripts in
-  # /persistent/tools/ cannot be executed directly. We create thin wrapper
-  # shims on a local filesystem (where chmod +x works) and put that on PATH.
-  SHIM_DIR="/home/agent/bin"
-  mkdir -p "$SHIM_DIR"
-  for tool in /persistent/tools/*; do
-    [ -f "$tool" ] || continue
-    tool_name="$(basename "$tool")"
-    cat > "${SHIM_DIR}/${tool_name}" <<SHIM
-#!/bin/sh
-exec sh "$tool" "\$@"
-SHIM
-    chmod +x "${SHIM_DIR}/${tool_name}"
-  done
-  export PATH="${SHIM_DIR}:$PATH"
-  echo "Created shims for $(ls /persistent/tools/ | wc -l) persistent tool(s)"
+  # NOTE: /persistent/tools/ auto-shimming has been removed (Layer 7 security hardening).
+  # Agents could write malicious scripts to /persistent/tools/ that would be auto-executed
+  # as shims on the next container start, creating a persistence backdoor. If persistent
+  # tools are needed in the future, add them manually with a verified integrity manifest.
 
   # ── 3c. Prune stale git worktrees from previous container runs ─────────────
   # When containers restart, /tmp workspace dirs are gone but worktree metadata

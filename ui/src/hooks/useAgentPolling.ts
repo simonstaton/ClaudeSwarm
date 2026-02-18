@@ -10,6 +10,7 @@ export function useAgentPolling() {
   const visible = usePageVisible();
 
   const refreshAgents = useCallback(async () => {
+    setLoading(true);
     try {
       const list = await api.fetchAgents();
       setAgents(list);
@@ -28,5 +29,5 @@ export function useAgentPolling() {
     return () => clearInterval(interval);
   }, [refreshAgents, visible]);
 
-  return { agents, refreshAgents, loading };
+  return { agents, loading, refreshAgents };
 }

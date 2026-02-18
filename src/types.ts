@@ -16,6 +16,8 @@ export interface Agent {
   capabilities?: string[];
   currentTask?: string;
   parentId?: string;
+  /** Layer 4: Spawn depth, set immutably at creation time. Depth 1 = top-level agent. */
+  depth: number;
 }
 
 export type MessageType = "task" | "result" | "question" | "info" | "status" | "interrupt";

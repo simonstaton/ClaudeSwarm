@@ -5,12 +5,14 @@ import express from "express";
 import { AgentManager } from "./src/agents";
 import { authMiddleware } from "./src/auth";
 import { corsMiddleware } from "./src/cors";
+import { isKilled, loadPersistedState, startGcsKillSwitchPoll } from "./src/kill-switch";
 import { MessageBus } from "./src/messages";
-import { cleanupStaleState } from "./src/persistence";
+import { cleanupStaleState, hasTombstone } from "./src/persistence";
 import { createAgentsRouter } from "./src/routes/agents";
 import { createConfigRouter } from "./src/routes/config";
 import { createContextRouter } from "./src/routes/context";
 import { createHealthRouter } from "./src/routes/health";
+import { createKillSwitchRouter } from "./src/routes/kill-switch";
 import { createMessagesRouter } from "./src/routes/messages";
 import {
   ensureDefaultContextFiles,
@@ -63,6 +65,22 @@ app.use((_req, res, next) => {
 app.use(corsMiddleware);
 
 app.use(express.json({ limit: "15mb" }));
+
+// ── Layer 1: Kill switch middleware ─────────────────────────────────────────
+// Checked BEFORE auth so even valid tokens get blocked when the switch is active.
+// Exempts: /api/kill-switch (to allow deactivation), /api/health, /api/auth/token.
+app.use((req, res, next) => {
+  if (!isKilled()) { next(); return; }
+  const exempt = ["/api/kill-switch", "/api/health", "/api/auth/token"];
+  if (exempt.some((p) => req.path === p || req.path.startsWith(p))) {
+    next(); return;
+  }
+  if (!req.path.startsWith("/api/")) { next(); return; }
+  res.status(503).json({
+    error: "Kill switch is active — all agent operations are disabled",
+    state: "killed",
+  });
+});
 
 // Auth middleware for API routes
 app.use(authMiddleware);
@@ -118,6 +136,8 @@ app.use(createAgentsRouter(agentManager, messageBus, startKeepAlive, stopKeepAli
 app.use(createMessagesRouter(messageBus));
 app.use(createConfigRouter());
 app.use(createContextRouter());
+// Layer 1: Kill switch endpoint (no extra auth beyond authMiddleware above)
+app.use(createKillSwitchRouter(agentManager));
 
 // ── Auto-deliver messages to idle agents ─────────────────────────────────────
 // When a message targets a specific agent that is idle, automatically resume
@@ -127,6 +147,9 @@ messageBus.subscribe((msg) => {
   // Only deliver targeted messages (not broadcasts) of actionable types
   if (!msg.to) return;
   if (msg.type === "status") return;
+
+  // Don't deliver if kill switch is active
+  if (isKilled()) return;
 
   const sender = msg.fromName || msg.from.slice(0, 8);
 
@@ -176,6 +199,9 @@ messageBus.subscribe((msg) => {
 agentManager.onIdle((agentId) => {
   // Small delay to let the agent fully settle into idle state
   setTimeout(() => {
+    // Skip delivery if kill switch is active
+    if (isKilled()) return;
+
     // canDeliver() atomically sets a delivery lock when returning true,
     // preventing concurrent onIdle + subscribe deliveries from racing.
     if (!agentManager.canDeliver(agentId)) return;
@@ -330,11 +356,26 @@ async function start() {
   ensureDefaultContextFiles();
   startPeriodicSync();
 
+  // Layer 1+6: Load persisted kill switch state (local file or GCS).
+  // If active, agentManager.killed will be set before any agents are restored.
+  const wasKilled = await loadPersistedState();
+  if (wasKilled) {
+    agentManager.killed = true;
+    console.log("[kill-switch] Kill switch was active on startup — agent restoration skipped");
+  }
+
+  // Layer 2: Check tombstone — if present, skip agent restoration entirely.
+  // This is a belt-and-suspenders check; loadAllAgentStates() also checks.
+  if (hasTombstone()) {
+    console.log("[kill-switch] Tombstone present — skipping all agent restoration");
+  }
+
   // Clean up stale state from previous container runs before restoring agents
   cleanupStaleState();
   cleanupOrphanedProcesses();
 
   // Restore agents from persisted state (after GCS sync so shared-context is available)
+  // loadAllAgentStates() will skip restoration if tombstone exists
   agentManager.restoreAgents();
   cleanupStaleWorkspaces(agentManager);
   if (agentManager.list().length > 0) {
@@ -344,6 +385,15 @@ async function start() {
   // Start worktree garbage collection (prunes orphaned worktrees from dead agents)
   const worktreeGCInterval = startWorktreeGC(() => agentManager.getActiveWorkspaceDirs());
 
+  // Layer 6: Start GCS kill switch poll (10s interval, Storage API not FUSE)
+  const stopGcsPoll = startGcsKillSwitchPoll(async () => {
+    // Remote activation detected — run the same sequence as the API endpoint
+    console.log("[kill-switch] Remote activation via GCS — running emergency shutdown");
+    agentManager.emergencyDestroyAll();
+    const { rotateJwtSecret } = await import("./src/auth");
+    rotateJwtSecret();
+  });
+
   const PORT = parseInt(process.env.PORT ?? "8080", 10);
   const server = app.listen(PORT, () => {
     console.log(`ClaudeSwarm listening on :${PORT}`);
@@ -351,6 +401,7 @@ async function start() {
 
   const shutdown = async () => {
     console.log("Shutting down...");
+    stopGcsPoll();
     clearInterval(worktreeGCInterval);
     clearInterval(memoryMonitorInterval);
     agentManager.dispose();

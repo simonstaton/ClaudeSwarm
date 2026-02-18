@@ -44,7 +44,7 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
       const msgs = await api.fetchMessages({ limit: 50 });
       setMessages(msgs);
     } catch (err) {
-      console.error("Failed to fetch messages:", err);
+      console.error("[MessageFeed] refresh failed", err);
     }
   }, [api]);
 
@@ -78,7 +78,7 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
       setComposerOpen(false);
       await refresh();
     } catch (err) {
-      console.error("Failed to send message:", err);
+      console.error("[MessageFeed] send failed", err);
     }
     setSending(false);
   };

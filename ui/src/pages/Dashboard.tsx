@@ -8,12 +8,14 @@ import { type Attachment, PromptInput, type PromptInputDefaultValues } from "../
 import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
+import { useKillSwitchContext } from "../App";
 
 export function Dashboard() {
   const navigate = useNavigate();
   const api = useApi();
-  const { agents, refreshAgents, loading } = useAgentPolling();
+  const { agents, loading, refreshAgents } = useAgentPolling();
   const [creating, setCreating] = useState(false);
+  const killSwitch = useKillSwitchContext();
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
 
   const handleTemplateSelect = useCallback((template: AgentTemplate) => {
@@ -66,16 +68,18 @@ export function Dashboard() {
 
   return (
     <div className="h-screen flex flex-col">
-      <Header agentCount={agents.length} />
+      <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar agents={agents} activeId={null} onSelect={(id) => navigate(`/agents/${id}`)} />
         <div className="flex-1 flex flex-col overflow-hidden">
           <main className="flex-1 overflow-y-auto p-6">
             <h2 className="text-lg font-medium mb-6">Agents</h2>
 
-            {loading ? (
-              <div className="py-8">
-                <p className="text-zinc-500 text-sm">Loading agents...</p>
+            {loading && agents.length === 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 rounded-lg bg-zinc-800/50 animate-pulse" />
+                ))}
               </div>
             ) : agents.length === 0 ? (
               <div className="py-8">
