@@ -31,4 +31,4 @@ export const SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 // creation time. Walking the parent chain at runtime is bypassable if a parent
 // is destroyed (chain breaks, depth resets to 0).
 export const MAX_AGENT_DEPTH = 3;
-export const MAX_CHILDREN_PER_AGENT = 6;
+export const MAX_CHILDREN_PER_AGENT = 20;
