@@ -8,7 +8,7 @@ export function createMessagesRouter(messageBus: MessageBus) {
 
   // Post a message
   router.post("/api/messages", (req: Request, res: Response) => {
-    const { from, fromName, to, channel, type, content, metadata } = req.body ?? {};
+    const { from, fromName, to, channel, type, content, metadata, excludeRoles } = req.body ?? {};
     if (!from || typeof from !== "string") {
       res.status(400).json({ error: "from is required" });
       return;
@@ -25,14 +25,18 @@ export function createMessagesRouter(messageBus: MessageBus) {
       res.status(400).json({ error: "content exceeds max length of 50000" });
       return;
     }
+    if (excludeRoles && !Array.isArray(excludeRoles)) {
+      res.status(400).json({ error: "excludeRoles must be an array" });
+      return;
+    }
 
-    const msg = messageBus.post({ from, fromName, to, channel, type, content, metadata });
+    const msg = messageBus.post({ from, fromName, to, channel, type, content, metadata, excludeRoles });
     res.json(msg);
   });
 
   // Query messages
   router.get("/api/messages", (req: Request, res: Response) => {
-    const { to, from, channel, type, unreadBy, since, limit } = req.query;
+    const { to, from, channel, type, unreadBy, since, limit, agentRole } = req.query;
     const messages = messageBus.query({
       to: to as string,
       from: from as string,
@@ -41,6 +45,7 @@ export function createMessagesRouter(messageBus: MessageBus) {
       unreadBy: unreadBy as string,
       since: since as string,
       limit: limit ? parseInt(limit as string, 10) : undefined,
+      agentRole: agentRole as string,
     });
     res.json(messages);
   });
@@ -61,12 +66,12 @@ export function createMessagesRouter(messageBus: MessageBus) {
 
   // Mark all as read for agent
   router.post("/api/messages/read-all", (req: Request, res: Response) => {
-    const { agentId } = req.body ?? {};
+    const { agentId, agentRole } = req.body ?? {};
     if (!agentId || typeof agentId !== "string") {
       res.status(400).json({ error: "agentId is required" });
       return;
     }
-    const count = messageBus.markAllRead(agentId);
+    const count = messageBus.markAllRead(agentId, agentRole);
     res.json({ ok: true, markedRead: count });
   });
 

@@ -206,9 +206,11 @@ agentManager.onIdle((agentId) => {
     // preventing concurrent onIdle + subscribe deliveries from racing.
     if (!agentManager.canDeliver(agentId)) return;
 
+    const agent = agentManager.get(agentId);
     const pending = messageBus.query({
       to: agentId,
       unreadBy: agentId,
+      agentRole: agent?.role,
     });
 
     // Find the oldest actionable message (skip status messages)

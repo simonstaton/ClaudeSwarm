@@ -33,6 +33,7 @@ export interface AgentMessage {
   metadata?: Record<string, unknown>;
   createdAt: string;
   readBy: string[];
+  excludeRoles?: string[];
 }
 
 export interface StreamEvent {

@@ -37,7 +37,7 @@ export function createAgentsRouter(
       parentId: a.parentId,
       model: a.model,
       lastActivity: a.lastActivity,
-      unreadMessages: messageBus.unreadCount(a.id),
+      unreadMessages: messageBus.unreadCount(a.id, a.role),
     }));
     res.json(agents);
   });

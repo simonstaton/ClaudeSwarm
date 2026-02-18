@@ -292,4 +292,40 @@ describe("MessageBus", () => {
       expect(bus.unreadCount("agent-2")).toBe(0);
     });
   });
+
+  describe("excludeRoles", () => {
+    it("filters broadcasts by agent role", () => {
+      bus.post({ from: "operator", type: "info", content: "General broadcast" });
+      bus.post({ from: "operator", type: "info", content: "MCP update", excludeRoles: ["Haiku Coder"] });
+      bus.post({ from: "operator", to: "agent-1", type: "task", content: "Direct message" });
+
+      // Haiku Coder should only see general broadcast + direct message (not MCP update)
+      const haikuMessages = bus.query({ to: "agent-1", agentRole: "Haiku Coder" });
+      expect(haikuMessages.length).toBe(2);
+      expect(haikuMessages.find((m) => m.content === "MCP update")).toBeUndefined();
+
+      // Tech Lead should see all messages including MCP update
+      const techLeadMessages = bus.query({ to: "agent-1", agentRole: "Tech Lead" });
+      expect(techLeadMessages.length).toBe(3);
+      expect(techLeadMessages.find((m) => m.content === "MCP update")).toBeDefined();
+    });
+
+    it("unreadCount respects excludeRoles", () => {
+      bus.post({ from: "operator", type: "info", content: "Broadcast", excludeRoles: ["Haiku Coder"] });
+
+      expect(bus.unreadCount("agent-1", "Haiku Coder")).toBe(0);
+      expect(bus.unreadCount("agent-1", "Tech Lead")).toBe(1);
+    });
+
+    it("markAllRead respects excludeRoles", () => {
+      bus.post({ from: "operator", type: "info", content: "Broadcast 1" });
+      bus.post({ from: "operator", type: "info", content: "Broadcast 2", excludeRoles: ["Haiku Coder"] });
+
+      const haikuCount = bus.markAllRead("agent-1", "Haiku Coder");
+      expect(haikuCount).toBe(1); // Only general broadcast
+
+      const techLeadCount = bus.markAllRead("agent-2", "Tech Lead");
+      expect(techLeadCount).toBe(2); // Both broadcasts
+    });
+  });
 });

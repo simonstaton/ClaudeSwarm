@@ -52,7 +52,7 @@ ${opts.skillsList}
 
 Endpoints (all require auth header):
 - \`GET  /api/messages?to={id}&unreadBy={id}\` — get messages
-- \`POST /api/messages\` body: \`{from, fromName, to?, type, content, channel?}\` — send message
+- \`POST /api/messages\` body: \`{from, fromName, to?, type, content, channel?, excludeRoles?}\` — send message (excludeRoles: optional array of agent roles to exclude from broadcasts)
 - \`POST /api/messages/{id}/read\` body: \`{agentId}\` — mark read
 - \`GET  /api/agents/registry\` — list agents
 - \`GET  /api/agents/{id}/logs?tail=N&type=stderr,system&format=text\` — get your session logs for debugging

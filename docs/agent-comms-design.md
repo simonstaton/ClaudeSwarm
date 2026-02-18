@@ -52,6 +52,7 @@ interface AgentMessage {
   metadata?: Record<string, unknown>;  // structured data (e.g. file paths, PR URLs)
   createdAt: string;
   readBy: string[];                    // which agents have read this
+  excludeRoles?: string[];             // agent roles to exclude from broadcasts (e.g. ["Haiku Coder"])
 }
 ```
 

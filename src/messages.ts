@@ -30,6 +30,7 @@ export class MessageBus {
     type: MessageType;
     content: string;
     metadata?: Record<string, unknown>;
+    excludeRoles?: string[];
   }): AgentMessage {
     const msg: AgentMessage = {
       id: randomUUID(),
@@ -42,6 +43,7 @@ export class MessageBus {
       metadata: opts.metadata,
       createdAt: new Date().toISOString(),
       readBy: [],
+      excludeRoles: opts.excludeRoles,
     };
 
     this.messages.push(msg);
@@ -73,11 +75,25 @@ export class MessageBus {
     unreadBy?: string;
     since?: string;
     limit?: number;
+    agentRole?: string;
   }): AgentMessage[] {
     let results = this.messages;
 
     if (opts?.to) {
-      results = results.filter((m) => m.to === opts.to || !m.to);
+      results = results.filter((m) => {
+        // Direct message to this agent
+        if (m.to === opts.to) return true;
+
+        // Broadcast message - check if agent role is excluded
+        if (!m.to) {
+          if (m.excludeRoles && opts.agentRole && m.excludeRoles.includes(opts.agentRole)) {
+            return false;
+          }
+          return true;
+        }
+
+        return false;
+      });
     }
     if (opts?.from) {
       results = results.filter((m) => m.from === opts.from);
@@ -110,10 +126,14 @@ export class MessageBus {
   }
 
   /** Mark all messages targeted to an agent as read */
-  markAllRead(agentId: string): number {
+  markAllRead(agentId: string, agentRole?: string): number {
     let count = 0;
     for (const msg of this.messages) {
-      if ((msg.to === agentId || !msg.to) && !msg.readBy.includes(agentId)) {
+      const isDirectMessage = msg.to === agentId;
+      const isBroadcast = !msg.to;
+      const isExcluded = isBroadcast && msg.excludeRoles && agentRole && msg.excludeRoles.includes(agentRole);
+
+      if ((isDirectMessage || (isBroadcast && !isExcluded)) && !msg.readBy.includes(agentId)) {
         msg.readBy.push(agentId);
         count++;
       }
@@ -139,8 +159,14 @@ export class MessageBus {
   }
 
   /** Get unread count for an agent */
-  unreadCount(agentId: string): number {
-    return this.messages.filter((m) => (m.to === agentId || !m.to) && !m.readBy.includes(agentId)).length;
+  unreadCount(agentId: string, agentRole?: string): number {
+    return this.messages.filter((m) => {
+      const isDirectMessage = m.to === agentId;
+      const isBroadcast = !m.to;
+      const isExcluded = isBroadcast && m.excludeRoles && agentRole && m.excludeRoles.includes(agentRole);
+
+      return (isDirectMessage || (isBroadcast && !isExcluded)) && !m.readBy.includes(agentId);
+    }).length;
   }
 
   /** Clean up messages from/to a specific agent */
