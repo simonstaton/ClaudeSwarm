@@ -21,9 +21,20 @@
       "env": { "SLACK_TOKEN": "${SLACK_TOKEN}" }
     },
     "figma": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/figma-mcp"],
-      "env": { "FIGMA_TOKEN": "${FIGMA_TOKEN}" }
+      "type": "http",
+      "url": "https://mcp.figma.com/mcp",
+      "_tokenEnv": "FIGMA_TOKEN",
+      "_tokenHeader": "Authorization",
+      "_tokenPrefix": "Bearer ",
+      "_alwaysActivate": true
+    },
+    "linear": {
+      "type": "http",
+      "url": "https://mcp.linear.app/mcp",
+      "_tokenEnv": "LINEAR_API_KEY",
+      "_tokenHeader": "Authorization",
+      "_tokenPrefix": "Bearer ",
+      "_alwaysActivate": true
     }
   }
 }

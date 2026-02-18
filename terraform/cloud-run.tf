@@ -148,6 +148,19 @@ resource "google_cloud_run_v2_service" "swarm" {
         }
       }
 
+      dynamic "env" {
+        for_each = var.linear_api_key != "" ? [1] : []
+        content {
+          name = "LINEAR_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.linear_api_key[0].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+
       volume_mounts {
         name       = "gcs-fuse"
         mount_path = "/persistent"

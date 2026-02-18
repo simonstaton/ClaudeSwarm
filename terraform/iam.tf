@@ -65,6 +65,13 @@ resource "google_secret_manager_secret_iam_member" "figma" {
   member    = "serviceAccount:${google_service_account.swarm.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "linear" {
+  count     = var.linear_api_key != "" ? 1 : 0
+  secret_id = google_secret_manager_secret.linear_api_key[0].id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.swarm.email}"
+}
+
 # Cloud Run invoker access
 resource "google_cloud_run_v2_service_iam_member" "invokers" {
   count    = length(var.cloud_run_invokers)

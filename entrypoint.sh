@@ -34,6 +34,32 @@ node -e "
 
   const activeMcp = {};
   for (const [name, config] of Object.entries(template.mcpServers || {})) {
+
+    // ── Remote HTTP servers (OAuth + optional token auth) ──
+    if (config.type === 'http' && config.url) {
+      const alwaysActivate = config._alwaysActivate === true;
+      const tokenEnv = config._tokenEnv;
+      const tokenVal = tokenEnv ? process.env[tokenEnv] : null;
+
+      if (!alwaysActivate && !tokenVal) continue;
+
+      const resolved = { type: 'http', url: config.url };
+
+      // If a token is available, add it as a header (skips OAuth flow)
+      if (tokenVal && config._tokenHeader) {
+        const prefix = config._tokenPrefix || '';
+        resolved.headers = { [config._tokenHeader]: prefix + tokenVal };
+        console.log('MCP: activated ' + name + ' (token auth)');
+      } else {
+        // No token — Claude Code will use OAuth via browser on first use
+        console.log('MCP: activated ' + name + ' (OAuth — authenticate via /mcp)');
+      }
+
+      activeMcp[name] = resolved;
+      continue;
+    }
+
+    // ── Stdio servers (existing env-var-based activation) ──
     const envVars = Object.values(config.env || {});
     // Only activate if all required env vars are present
     const allPresent = envVars.every(v => {
