@@ -4,6 +4,8 @@
 
 # Claude Swarm Platform
 
+[![Watch the demo](https://img.youtube.com/vi/DH0m6MiIS-U/maxresdefault.jpg)](https://youtu.be/DH0m6MiIS-U)
+
 A self-hosted orchestration platform for running coordinated Claude agents at scale — with real-time visibility, persistent memory, and production-ready deployment on Google Cloud Run.
 
 ## Quick start (local)
