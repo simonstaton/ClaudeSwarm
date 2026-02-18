@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "description": "Cloud Hosted Claude Swarm Platform",
   "scripts": {
+    "setup": "npm install && cd ui && npm install && cd .. && mkdir -p shared-context && npm run dev",
     "dev": "npx concurrently \"node --env-file=.env --import tsx server.ts\" \"cd ui && npm run dev\"",
     "dev:server": "node --env-file=.env --import tsx server.ts",
     "build": "cd ui && npm run build",
@@ -17,15 +18,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/simonstaton/ClaudeSwarm_PRIVATE.git"
+    "url": "git+https://github.com/simonstaton/ClaudeSwarm.git"
   },
   "author": "Simon Staton <simon.staton@live.co.uk>",
   "license": "MIT",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/simonstaton/ClaudeSwarm_PRIVATE/issues"
+    "url": "https://github.com/simonstaton/ClaudeSwarm/issues"
   },
-  "homepage": "https://github.com/simonstaton/ClaudeSwarm_PRIVATE#readme",
+  "homepage": "https://github.com/simonstaton/ClaudeSwarm#readme",
   "dependencies": {
     "@google-cloud/storage": "^7.15.0",
     "express": "^5.2.1",

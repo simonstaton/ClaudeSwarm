@@ -9,27 +9,17 @@ A self-hosted orchestration platform for running coordinated Claude agents at sc
 ## Quick start (local)
 
 ```bash
-# 1. Clone and install
-git clone https://github.com/simonstaton/ClaudeSwarm_PRIVATE.git
-cd ClaudeSwarm_PRIVATE
-npm install
-cd ui && npm install && cd ..
-
-# 2. Configure
+git clone https://github.com/simonstaton/ClaudeSwarm.git
+cd ClaudeSwarm
 cp .env.example .env
 # Edit .env — you need at minimum:
 #   ANTHROPIC_API_KEY=sk-ant-...
 #   API_KEY=use-this-password-to-access-the-ui
 #   JWT_SECRET=any-random-string
-
-# 3. Create shared context dir (this is ignored)
-mkdir -p shared-context
-
-# 4. Run
-npm run dev
-# Server: http://localhost:8080
-# UI dev: http://localhost:5173 (with API proxy)
+npm run setup
 ```
+
+This installs all dependencies, creates the shared context directory, and starts the dev server.
 
 Open `http://localhost:5173`, log in with your `API_KEY`, and start creating agents.
 
