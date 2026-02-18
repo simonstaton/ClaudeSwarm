@@ -90,6 +90,7 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
   // Set of event fingerprints for deduplication. When events arrive from
   // different stream paths (reconnect vs message), the same persisted event
   // can be delivered twice. This set lets us skip duplicates.
+  // Bounded to 2x MAX_EVENTS to prevent unbounded memory growth
   const seenFingerprintsRef = useRef(new Set<string>());
 
   // Keep agentId ref current for retry callbacks
@@ -156,6 +157,12 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
               const fp = eventFingerprint(value);
               if (!seenFingerprintsRef.current.has(fp)) {
                 seenFingerprintsRef.current.add(fp);
+                // Prevent fingerprint Set from growing unbounded
+                if (seenFingerprintsRef.current.size > MAX_EVENTS * 2) {
+                  // Convert to array, slice, and recreate Set to remove oldest entries
+                  const fps = Array.from(seenFingerprintsRef.current);
+                  seenFingerprintsRef.current = new Set(fps.slice(-MAX_EVENTS));
+                }
                 setEvents((prev) => {
                   const updated = [...prev, value];
                   // Limit array size to prevent memory leak with long-running agents
@@ -221,6 +228,12 @@ export function useAgentStream(agentId: string | null): UseAgentStreamReturn {
             const fp = eventFingerprint(value);
             if (!seenFingerprintsRef.current.has(fp)) {
               seenFingerprintsRef.current.add(fp);
+              // Prevent fingerprint Set from growing unbounded
+              if (seenFingerprintsRef.current.size > MAX_EVENTS * 2) {
+                // Convert to array, slice, and recreate Set to remove oldest entries
+                const fps = Array.from(seenFingerprintsRef.current);
+                seenFingerprintsRef.current = new Set(fps.slice(-MAX_EVENTS));
+              }
               setEvents((prev) => {
                 const updated = [...prev, value];
                 // Limit array size to prevent memory leak with long-running agents
