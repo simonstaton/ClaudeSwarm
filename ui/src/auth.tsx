@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const authFetch = useCallback(async (url: string, opts: RequestInit = {}) => {
-    const currentToken = tokenRef.current;
+    const currentToken = sessionStorage.getItem("jwt");
     const headers = new Headers(opts.headers);
     if (currentToken) {
       headers.set("Authorization", `Bearer ${currentToken}`);

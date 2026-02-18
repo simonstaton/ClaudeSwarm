@@ -2,6 +2,10 @@
   <img src="assets/banner.png" alt="ClaudeSwarm — Multi-Agent Orchestration with Claude">
 </p>
 
+<p align="center">
+  <img src="assets/kill-switch-dialog.png" alt="Emergency Kill Switch Dialog" width="600">
+</p>
+
 # Claude Swarm Platform
 
 [![Watch the demo](https://img.youtube.com/vi/DH0m6MiIS-U/maxresdefault.jpg)](https://youtu.be/DH0m6MiIS-U)
