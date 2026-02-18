@@ -19,10 +19,16 @@ FROM node:22-alpine
 WORKDIR /app
 
 # Install system deps: git, gh CLI
+ARG TARGETARCH
 RUN apk add --no-cache git bash curl \
-  && curl -fsSL --retry 3 -o /tmp/gh.tar.gz https://github.com/cli/cli/releases/download/v2.67.0/gh_2.67.0_linux_amd64.tar.gz \
+  && case "${TARGETARCH}" in \
+       amd64) GH_ARCH="linux_amd64" ;; \
+       arm64) GH_ARCH="linux_arm64" ;; \
+       *)     GH_ARCH="linux_amd64" ;; \
+     esac \
+  && curl -fsSL --retry 3 -o /tmp/gh.tar.gz "https://github.com/cli/cli/releases/download/v2.67.0/gh_2.67.0_${GH_ARCH}.tar.gz" \
   && tar xzf /tmp/gh.tar.gz -C /tmp \
-  && mv /tmp/gh_2.67.0_linux_amd64/bin/gh /usr/local/bin/ \
+  && mv "/tmp/gh_2.67.0_${GH_ARCH}/bin/gh" /usr/local/bin/ \
   && rm -rf /tmp/gh*
 
 # Install Claude Code CLI globally
