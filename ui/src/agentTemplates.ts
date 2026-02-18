@@ -15,7 +15,7 @@ export const agentTemplates: AgentTemplate[] = [
     name: "swarm-operator",
     label: "Swarm Operator",
     icon: "🐝",
-    description: "Coordinates agents, delegates tasks, and maintains oversight across the swarm",
+    description: "Coordinates a team of AI agents: triages incoming requests, spawns the right agents for each task, and synthesizes results for the human operator. Acts as the single point of contact so you never have to manage individual agents directly. Best for orchestrating multi-agent workflows across one or more repositories.",
     model: "claude-opus-4-6",
     maxTurns: 30,
     prompt: `You are a swarm operator — the central coordinator for a team of AI agents working across one or more repositories.
@@ -40,7 +40,7 @@ Always think about the most efficient way to parallelize work. Be the human's si
     name: "product-manager",
     label: "Product Manager",
     icon: "📋",
-    description: "Backlog management, feature prioritization, user stories, and product strategy",
+    description: "Manages the product backlog: writes user stories with acceptance criteria, prioritizes features using RICE or MoSCoW, and sequences work into milestones. Documents decisions and roadmaps to shared-context/ so the whole swarm stays aligned. Use when you need structured planning rather than code changes.",
     model: "claude-sonnet-4-6",
     maxTurns: 30,
     prompt: `You are a product manager helping to plan and prioritize work across software projects.
@@ -69,7 +69,7 @@ Be opinionated about priorities. Push back when scope creeps. Keep things action
     name: "budget-planner",
     label: "Budget Planner",
     icon: "💰",
-    description: "Monitors agent costs, flags waste, and enforces efficient swarm usage",
+    description: "Audits running agents for wasteful model choices, idle sessions, and duplicate work. Produces a cost-tier table for every active agent and recommends concrete actions (downgrade model, reduce maxTurns, terminate). Use when your swarm is growing large or API spend needs to be controlled.",
     model: "claude-sonnet-4-6",
     maxTurns: 30,
     prompt: `You are a budget planner and cost-efficiency analyst for this agent swarm. Your job is to monitor running agents, identify waste, and recommend optimizations that reduce API spend without sacrificing output quality.
@@ -97,7 +97,7 @@ Be direct and opinionated. Your goal is to save money. If the swarm is running l
     name: "tech-lead",
     label: "Tech Lead",
     icon: "🏗️",
-    description: "Architecture decisions, code reviews, and technical direction",
+    description: "Provides architectural guidance across the entire repository: evaluates trade-offs, writes Architecture Decision Records to shared-context/, and reviews code for correctness, maintainability, and security. Focuses on the big picture — patterns, conventions, and technical debt — rather than implementing individual features.",
     model: "claude-opus-4-6",
     maxTurns: 50,
     prompt: `You are a tech lead providing architectural guidance and technical direction for a software project.
@@ -128,7 +128,7 @@ Be opinionated but open to discussion. Back up recommendations with concrete rea
     name: "frontend-dev",
     label: "Frontend Dev",
     icon: "🎨",
-    description: "UI implementation, components, styling, and frontend architecture",
+    description: "Implements UI features in the frontend directory (ui/src/): builds React components, fixes styling with Tailwind, and ensures accessibility and responsive design. Reads existing components before writing new ones to stay consistent with the project's patterns, then runs lint and typecheck to verify changes.",
     model: "claude-sonnet-4-6",
     maxTurns: 200,
     prompt: `You are a frontend developer. You implement UI features, build components, fix styling issues, and improve user experience.
@@ -158,7 +158,7 @@ Run the project's lint/typecheck commands after making changes. Fix any issues y
     name: "backend-dev",
     label: "Backend Dev",
     icon: "⚙️",
-    description: "APIs, server logic, data models, and backend architecture",
+    description: "Implements server-side features in src/: REST endpoints, business logic, data models, authentication, and third-party integrations. Follows the project's existing error-handling and validation patterns, applies OWASP security principles, and writes tests for new functionality. Runs lint, typecheck, and the test suite before finishing.",
     model: "claude-sonnet-4-6",
     maxTurns: 200,
     prompt: `You are a backend developer. You implement APIs, server-side logic, data models, and integrations.
@@ -189,7 +189,7 @@ Run the project's lint/typecheck/test commands after making changes. Fix any iss
     name: "fullstack-dev",
     label: "Full-Stack Dev",
     icon: "🔧",
-    description: "End-to-end feature implementation across the full stack",
+    description: "Implements features end-to-end: starts with the data model in src/, builds the API layer, then connects the React UI in ui/src/ — keeping shared types in sync throughout. Best when a task spans both server and client code and you want a single agent to own the complete change.",
     model: "claude-sonnet-4-6",
     maxTurns: 200,
     prompt: `You are a full-stack developer. You implement features end-to-end — from database and API changes through to the UI.
@@ -221,7 +221,7 @@ Run the project's lint/typecheck/test commands after making changes. Fix any iss
     name: "devops",
     label: "DevOps",
     icon: "🚀",
-    description: "Infrastructure, CI/CD, Docker, cloud deployment, and operations",
+    description: "Handles infrastructure and deployment: Dockerfiles, GitHub Actions workflows, Terraform (terraform/), and GCP Cloud Run configuration. Treats all infrastructure as code — nothing manual — and keeps secrets out of source. Use for CI/CD changes, container optimisation, and cloud environment setup.",
     model: "claude-sonnet-4-6",
     maxTurns: 100,
     prompt: `You are a DevOps engineer. You handle infrastructure, deployment, CI/CD, containerization, and operational concerns.
@@ -253,7 +253,7 @@ Principles:
     name: "code-reviewer",
     label: "Code Reviewer",
     icon: "🔍",
-    description: "Thorough code review with security, correctness, and quality focus",
+    description: "Performs thorough code reviews categorised by severity (Critical / Important / Suggestion): checks correctness, OWASP security issues, maintainability, performance, and test coverage. Uses git diff to scope the review and outputs a clear per-finding table with concrete fix suggestions and an overall merge recommendation.",
     model: "claude-opus-4-6",
     maxTurns: 30,
     prompt: `You are a senior code reviewer. You provide thorough, actionable code reviews focused on correctness, security, and maintainability.
@@ -304,7 +304,7 @@ Output format:
     name: "debugger",
     label: "Debugger",
     icon: "🐛",
-    description: "Systematic bug investigation, root cause analysis, and fixes",
+    description: "Investigates bugs systematically: forms ranked hypotheses, traces code paths, checks git history for recent changes, and identifies the root cause before writing a fix. Avoids symptomatic patches — every fix targets the underlying problem and includes a regression test where one would add value.",
     model: "claude-sonnet-4-6",
     maxTurns: 75,
     prompt: `You are a debugging specialist. You systematically investigate bugs to find root causes and implement reliable fixes.
@@ -340,7 +340,7 @@ Anti-patterns to avoid:
     name: "researcher",
     label: "Researcher",
     icon: "📚",
-    description: "Codebase exploration, documentation, and architectural understanding",
+    description: "Explores and documents the codebase: maps architecture, traces data flow from entry point to output, and identifies patterns or anti-patterns across both src/ and ui/src/. Writes findings to shared-context/ with file/line citations so other agents and future sessions can build on the research.",
     model: "claude-sonnet-4-6",
     maxTurns: 50,
     prompt: `You are a codebase researcher. You explore, analyze, and document codebases to help humans understand how things work.
@@ -374,7 +374,7 @@ When documenting findings:
     name: "test-engineer",
     label: "Test Engineer",
     icon: "🧪",
-    description: "Write and improve tests — unit, integration, and end-to-end",
+    description: "Writes and improves tests across the stack: unit tests in src/*.test.ts, UI component tests in ui/src/, and integration tests covering API flows. Matches the project's existing test framework (Vitest) and covers happy paths, edge cases, error paths, and security-relevant inputs. Fixes flaky tests and adds coverage for uncovered code paths.",
     model: "claude-sonnet-4-6",
     maxTurns: 100,
     prompt: `You are a test engineer. You write, improve, and maintain tests to ensure code quality and prevent regressions.
@@ -410,7 +410,7 @@ Always run the test suite after making changes to verify everything passes.`,
     name: "agent",
     label: "Blank Agent",
     icon: "➕",
-    description: "Start from scratch with a custom prompt",
+    description: "A blank slate: write your own system prompt to create a custom agent for any task. No pre-loaded instructions or role assumptions — you define the behaviour entirely. Useful for specialised one-off tasks or experimenting with new agent roles.",
     model: "claude-sonnet-4-6",
     maxTurns: 200,
     prompt: "",
