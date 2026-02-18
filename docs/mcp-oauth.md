@@ -1,10 +1,12 @@
 # MCP OAuth Integration
 
-This document describes the OAuth authentication flow for MCP servers (Figma and Linear) in the Claude Swarm platform.
+> **For agents**: This is an operator/developer reference. Do NOT attempt OAuth flows from agent sessions — token auth is already pre-configured. Use MCP tools directly, or fall back to `/linear` and `/figma` slash commands. See `home-claude.md` for agent guidance.
+
+This document describes the OAuth authentication flow for MCP servers (Figma and Linear) in the Claude Swarm platform. OAuth is a **fallback for human operators** who need to authenticate via browser.
 
 ## Overview
 
-The MCP OAuth integration allows users to authenticate with external services (Figma, Linear) through their browser once, and have that authentication available to all agents running on the platform. Tokens are persisted across container restarts.
+The MCP OAuth integration allows human operators to authenticate with external services (Figma, Linear) through their browser once, and have that authentication available to all agents running on the platform. Tokens are persisted across container restarts. In practice, **token auth (via env vars) is the standard method** — OAuth is only needed if tokens are not configured.
 
 ## Architecture
 

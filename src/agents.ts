@@ -34,6 +34,9 @@ import { cleanupWorktreesForWorkspace } from "./worktrees";
 
 const SHARED_CONTEXT_DIR = getContextDir();
 
+/** Harmless stderr noise from Claude CLI startup that should not surface as errors. */
+const STDERR_NOISE_RE = /apiKeyHelper did not return a valid value|Error getting API key from apiKeyHelper/;
+
 /** Kill a process group (SIGTERM), escalating to SIGKILL after a timeout.
  *  Uses negative PID to signal the entire process group. */
 function killProcessGroup(proc: ReturnType<typeof spawn>, timeoutMs = 5000): void {
@@ -777,7 +780,9 @@ export class AgentManager {
     });
 
     proc.stderr?.on("data", (d: Buffer) => {
-      this.handleEvent(id, { type: "stderr", text: d.toString() });
+      const text = d.toString();
+      if (STDERR_NOISE_RE.test(text)) return;
+      this.handleEvent(id, { type: "stderr", text });
     });
 
     proc.on("close", (code) => {

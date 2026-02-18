@@ -14,22 +14,11 @@ With Figma MCP enabled, agents can:
 
 ## Setup
 
-ClaudeSwarm connects to Figma's official remote MCP server at `https://mcp.figma.com/mcp`. You can authenticate in two ways:
+ClaudeSwarm connects to Figma's official remote MCP server at `https://mcp.figma.com/mcp`.
 
-### Option 1: OAuth (browser-based — no token needed)
+### Token Authentication (Standard)
 
-Figma MCP is always activated on startup. Agents authenticate via browser on first use:
-
-1. Start a Claude Code session (or message an agent)
-2. Run `/mcp` to see available MCP servers
-3. Click the Figma authentication link to sign in via browser
-4. Authentication persists for the session
-
-This is the simplest approach — no tokens to manage.
-
-### Option 2: Personal Access Token
-
-If you prefer token-based auth (e.g. for headless/automated use):
+Token auth is the standard method. When configured, all agents automatically have Figma access with no extra steps.
 
 1. Go to [Figma Settings](https://www.figma.com/settings)
 2. Scroll to **Personal Access Tokens**
@@ -63,7 +52,15 @@ gcloud run services update claude-swarm \
   --region=$REGION --project=$PROJECT_ID
 ```
 
-When a token is provided, it's passed as a Bearer header to the remote server, skipping the OAuth flow.
+When a token is provided, it's passed as a Bearer header to the remote server automatically.
+
+## For Agents
+
+**Figma MCP tools are pre-configured with token auth.** Just use them directly — they should appear as available tools in your session (e.g., `mcp__figma__...`).
+
+If MCP tools are not loading, use the `/figma` slash command for direct REST API access as a fallback.
+
+**Do NOT attempt OAuth or browser-based authentication** — it doesn't work from agent sessions.
 
 ## Usage Examples
 
@@ -102,31 +99,24 @@ from the Figma library
 
 ## Permissions & Security
 
-- OAuth tokens are scoped to the authenticating user's Figma access
 - Personal access tokens grant access to all files the token owner can view
 - In production, tokens are managed via GCP Secret Manager
 - Never commit tokens to version control
 
 ## Troubleshooting
 
-### OAuth Flow Not Working
+### MCP Tools Not Loading
 
 Check that:
-1. The agent session supports browser-based authentication
-2. The Figma remote MCP server is reachable (`https://mcp.figma.com/mcp`)
-3. Run `/mcp` in the agent session to retry authentication
-
-### MCP Server Not Loading (Token Auth)
-
-Check that:
-1. `FIGMA_TOKEN` is set in your environment
-2. The token is valid and not expired
-3. Agent container has been restarted after adding the token
+1. `FIGMA_TOKEN` is set in the environment
+2. `~/.claude/settings.json` contains the figma entry with Authorization header
+3. Restart container if token was added after startup
+4. Fall back to `/figma` slash command if MCP tools aren't available
 
 ### Permission Denied Errors
 
 Ensure:
-- The authenticated user or token has access to the requested file
+- The token owner has access to the requested file
 - The file URL is correct and shared with the token owner
 
 ## Additional Resources

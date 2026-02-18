@@ -2,6 +2,8 @@
 
 MCP (Model Context Protocol) servers give Claude agents access to external tools like Notion, GitHub, Slack, Linear, Figma, etc.
 
+> **For agents**: Figma and Linear MCP tools are pre-configured with token auth. Just use them directly. If tools don't load, use `/figma` or `/linear` slash commands. Do NOT attempt OAuth.
+
 ## How it works
 
 On startup, the entrypoint reads `mcp/settings-template.json`, processes each server entry, and merges the result into `~/.claude/settings.json`.
@@ -12,14 +14,9 @@ There are two types of MCP servers:
 
 These run as local processes (via `npx` or `gh`). They require environment variables containing API tokens. Only servers whose required env vars are ALL present get activated.
 
-### Remote HTTP servers (OAuth or token)
+### Remote HTTP servers (token-based)
 
-These connect to hosted MCP endpoints (e.g. `https://mcp.linear.app/mcp`). They support two authentication modes:
-
-1. **OAuth (browser-based)** — No token needed. The server is activated on startup and agents authenticate via browser when first using it. Run `/mcp` in a Claude Code session to trigger the OAuth flow.
-2. **Token auth** — If an API key env var is provided, it's passed as a header, skipping the OAuth flow entirely.
-
-Remote servers marked with `_alwaysActivate: true` are activated even without a token — agents can authenticate via OAuth later.
+These connect to hosted MCP endpoints (e.g. `https://mcp.linear.app/mcp`). They require an API token env var, which is injected as an Authorization header.
 
 The `gh` CLI automatically uses the `GITHUB_TOKEN` env var for authentication — no `gh auth login` needed. On container startup, `gh auth setup-git` configures git to use `gh` as a credential helper, so `git push` and `git fetch` to GitHub repos also work automatically.
 
@@ -33,8 +30,8 @@ Add your tokens to `terraform/terraform.tfvars`:
 github_token   = "ghp_xxxxx"   # or fine-grained: "github_pat_xxxxx"
 notion_api_key = "ntn_xxxxx"
 slack_token    = "xoxb-xxxxx"
-figma_token    = "figd_xxxxx"  # optional — can use OAuth instead
-linear_api_key = "lin_api_xxxxx"  # optional — can use OAuth instead
+figma_token    = "figd_xxxxx"  # required for Figma MCP
+linear_api_key = "lin_api_xxxxx"  # required for Linear MCP
 ```
 
 Then apply and redeploy:
@@ -63,42 +60,28 @@ LINEAR_API_KEY=lin_api_xxxxx
 
 Then `npm run dev` — the entrypoint auto-merges MCP settings when these env vars are present.
 
-### OAuth authentication (no tokens needed)
+### OAuth (operator-only, not for agents)
 
-For Figma and Linear, you can skip providing tokens entirely. These servers are always activated and agents can authenticate via OAuth:
+The platform has OAuth support for Figma and Linear as a fallback for human operators who want to authenticate via browser. This is **not usable by agents** (they run in headless environments).
 
-1. Make a POST request to initiate OAuth:
-   ```bash
-   curl -X POST http://localhost:8080/api/mcp/auth/figma \
-     -H "Authorization: Bearer $TOKEN"
-   ```
-
-2. Open the returned `authUrl` in your browser and authenticate
-
-3. After successful authentication, tokens are stored in `/persistent/mcp-tokens/` and automatically injected into agent sessions
-
-4. All agents will have access to your authenticated Figma/Linear account
-
-For detailed OAuth documentation, API reference, and troubleshooting, see [docs/mcp-oauth.md](../docs/mcp-oauth.md).
-
-**Note:** OAuth tokens persist across container restarts and are shared by all agents on the platform.
+For detailed OAuth documentation, see [docs/mcp-oauth.md](../docs/mcp-oauth.md).
 
 ## Available integrations
 
-| Server | Type | Env var (optional for OAuth) | Where to get it |
-|--------|------|------------------------------|-----------------|
+| Server | Type | Env var | Where to get it |
+|--------|------|---------|-----------------|
 | GitHub | stdio | `GITHUB_TOKEN` | [GitHub Settings > Tokens](https://github.com/settings/tokens) — classic PAT with `repo` scope, or [fine-grained token](https://github.com/settings/personal-access-tokens/new) with Contents + Pull requests (read/write) |
 | Notion | stdio | `NOTION_API_KEY` | [Notion Integrations](https://www.notion.so/my-integrations) |
 | Google Calendar | stdio | `GOOGLE_CREDENTIALS` | Google Cloud Console → APIs & Services → Credentials |
 | Slack | stdio | `SLACK_TOKEN` | [Slack API > Your Apps](https://api.slack.com/apps) → OAuth & Permissions |
-| Figma | remote | `FIGMA_TOKEN` (or OAuth) | [Figma Settings > Personal Access Tokens](https://www.figma.com/settings) or authenticate via browser |
-| Linear | remote | `LINEAR_API_KEY` (or OAuth) | [Linear Settings > API](https://linear.app/settings/api) or authenticate via browser |
+| Figma | remote | `FIGMA_TOKEN` | [Figma Settings > Personal Access Tokens](https://www.figma.com/settings) |
+| Linear | remote | `LINEAR_API_KEY` | [Linear Settings > API](https://linear.app/settings/api) |
 
 ## Usage Examples
 
 ### Linear Integration
 
-Once connected (via token or OAuth), agents can:
+Once connected (via token), agents can:
 
 ```
 # Find and update issues
@@ -116,7 +99,7 @@ Once connected (via token or OAuth), agents can:
 
 ### Figma Integration
 
-Once connected (via token or OAuth), agents can:
+Once connected (via token), agents can:
 
 ```
 # Analyze a design file

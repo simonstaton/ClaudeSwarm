@@ -1,10 +1,10 @@
 # MCP Server Authentication
 
-Check the authentication status of available MCP servers and get OAuth URLs for browser authentication.
+Check the authentication status of available MCP servers.
 
 **Available MCP Servers:**
-- **Figma** — Design and prototyping tool (OAuth or token-based)
-- **Linear** — Project management and issue tracking (OAuth or token-based)
+- **Figma** — Design and prototyping tool (token auth pre-configured)
+- **Linear** — Project management and issue tracking (token auth pre-configured)
 - **GitHub** — Version control and collaboration (token-based via GITHUB_TOKEN)
 - **Notion** — Workspace and documentation (token-based via NOTION_API_KEY)
 - **Slack** — Team communication (token-based via SLACK_TOKEN)
@@ -13,9 +13,8 @@ Check the authentication status of available MCP servers and get OAuth URLs for 
 ## How Authentication Works
 
 **Remote HTTP servers (Figma, Linear):**
-- Support two authentication modes:
-  1. **OAuth (browser-based)** — No token needed, authenticate via browser when first using the tool
-  2. **Token auth** — If an API key env var is set, it's used automatically (skips OAuth)
+- Use **token auth** — API key env vars are set at container startup and injected as Authorization headers
+- Token auth is pre-configured; no setup needed by agents
 
 **Stdio servers (GitHub, Notion, Slack, Google Calendar):**
 - Require API tokens provided via environment variables
@@ -49,7 +48,7 @@ if (Object.keys(mcpServers).length === 0) {
   console.log('To enable MCP servers, set the required environment variables:');
   console.log('  GITHUB_TOKEN, NOTION_API_KEY, SLACK_TOKEN, FIGMA_TOKEN, LINEAR_API_KEY');
   console.log('');
-  console.log('Or use OAuth for Figma and Linear (no tokens needed).');
+  console.log('Contact your admin to configure the required env vars.');
   process.exit(0);
 }
 
@@ -61,14 +60,14 @@ for (const [name, config] of Object.entries(mcpServers)) {
   if (type === 'http') {
     // Remote HTTP server
     const hasToken = config.headers && config.headers.Authorization;
-    const authMode = hasToken ? 'Token auth' : 'OAuth (requires browser authentication)';
+    const authMode = hasToken ? 'Token auth' : 'No token configured';
     console.log(\`✓ \${name} (\${type})\`);
     console.log(\`  URL: \${config.url}\`);
     console.log(\`  Auth: \${authMode}\`);
 
     if (!hasToken) {
-      console.log(\`  → Use /linear or /figma slash commands for direct API access\`);
-      console.log(\`  → Alternative: Set \${name.toUpperCase()}_TOKEN env var to enable token auth\`);
+      console.log(\`  → Token not configured — use /linear or /figma slash commands for direct API access\`);
+      console.log(\`  → Contact your admin to set \${name.toUpperCase()}_TOKEN env var\`);
     }
   } else {
     // Stdio server (always has token if activated)
@@ -109,7 +108,7 @@ Tokens are set as environment variables via Terraform/deployment config:
 
 After running the status script above, you'll see:
 - Which MCP servers are currently active
-- Their authentication method (token-based or OAuth)
+- Whether token auth is configured
 
 **Prefer MCP tools** when available. Fall back to `/linear` or `/figma` slash commands only if MCP tools aren't loading.
 

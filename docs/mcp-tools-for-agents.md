@@ -4,11 +4,13 @@
 
 MCP (Model Context Protocol) tools are **automatically available** to all agents spawned in the ClaudeSwarm platform. The Claude CLI loads these tools from `~/.claude/settings.json`, which is configured at container startup.
 
+**Token auth is pre-configured for Figma and Linear — just use the MCP tools directly.** Do NOT attempt OAuth flows.
+
 ## Currently Available MCP Tools
 
 ### Figma
 - **Server**: `https://mcp.figma.com/mcp`
-- **Authentication**: OAuth (browser-based) or Personal Access Token
+- **Authentication**: Personal Access Token (pre-configured)
 - **Capabilities**:
   - Read Figma files and design systems
   - Extract design tokens (colors, typography, spacing)
@@ -18,7 +20,7 @@ MCP (Model Context Protocol) tools are **automatically available** to all agents
 
 ### Linear
 - **Server**: `https://mcp.linear.app/mcp`
-- **Authentication**: OAuth (browser-based) or API Key
+- **Authentication**: API Key (pre-configured)
 - **Capabilities**:
   - Create, read, update, and search issues
   - Manage projects, teams, and workflows
@@ -32,7 +34,7 @@ MCP (Model Context Protocol) tools are **automatically available** to all agents
 1. Container starts → `entrypoint.sh` runs
 2. Script reads `mcp/settings-template.json`
 3. For each MCP server:
-   - **HTTP servers with `_alwaysActivate: true`** → Always added to settings.json
+   - **HTTP servers with tokens** → Added with Authorization headers
    - **Stdio servers** → Only added if required env vars are present
 4. Merged config written to `~/.claude/settings.json`
 5. All agent `claude` CLI processes automatically load from this file
@@ -49,39 +51,24 @@ User: "What are my assigned Linear issues?"
 
 ## Authentication
 
-### OAuth Authentication (Recommended for Interactive Use)
+### Token Authentication (Pre-configured)
 
-**How it works:**
-- MCP servers (Figma, Linear) are activated on startup
-- First time a tool is used, Claude Code prompts for OAuth authentication
-- User clicks a link and authenticates in browser
-- OAuth tokens stored in `~/.claude/session-env/{session-id}/`
-- **Limitation**: Each agent session has its own session-env directory
+**This is the standard and only supported method for agents.**
 
-**To authenticate:**
-1. Message an agent or start a session
-2. Try using a Figma or Linear tool (e.g., "What are my Linear issues?")
-3. Claude will provide an OAuth link
-4. Click the link and authenticate
-5. Authentication persists for that agent's session
+- `FIGMA_TOKEN` and `LINEAR_API_KEY` are set as environment variables at container startup
+- Tokens are injected as `Authorization: Bearer <token>` headers to MCP HTTP requests
+- All agents share the same authentication automatically
+- No setup required by agents — it just works
 
-**Cross-agent limitation:**
-OAuth tokens are session-specific. If Agent A authenticates with Linear, Agent B will need to authenticate separately. This is a current limitation of the session-based OAuth storage.
+**If MCP tools don't appear in your session**, use the fallback slash commands:
+- `/linear` — Direct GraphQL API access
+- `/figma` — Direct REST API access
 
-### Token Authentication (Recommended for Production)
+**Do NOT attempt OAuth or browser-based authentication** — agents run in headless environments without browser access.
 
-**How it works:**
-- Set environment variables at container startup
-- Tokens injected as headers to MCP HTTP requests
-- OAuth flow is skipped entirely
-- All agents share the same authentication
+### Operator Setup (for admins, not agents)
 
-**Environment variables:**
-- `FIGMA_TOKEN` - Personal Access Token from Figma Settings
-- `LINEAR_API_KEY` - API Key from Linear Settings
-
-**For production:**
-Add to `terraform/terraform.tfvars`:
+Add tokens to `terraform/terraform.tfvars`:
 ```hcl
 figma_token    = "figd_xxxxx"
 linear_api_key = "lin_api_xxxxx"
@@ -148,28 +135,21 @@ gcloud run services update claude-swarm \
 **Fix**:
 1. Check `cat ~/.claude/settings.json` to verify mcpServers section exists
 2. If missing, check container startup logs for MCP activation messages
-3. Restart container if env vars were added after startup
-
-### OAuth authentication failing
-**Cause**: Session-specific OAuth storage, browser authentication issues
-**Fix**:
-1. Try the OAuth flow in the specific agent's session
-2. Check browser console for CORS or network errors
-3. Consider using token authentication instead for production use
+3. Fall back to `/linear` or `/figma` slash commands for direct API access
 
 ### "Permission denied" errors
-**Cause**: OAuth token or API key doesn't have access to requested resource
+**Cause**: API key doesn't have access to requested resource
 **Fix**:
-1. Verify the authenticated user has access to the Figma file or Linear project
+1. Verify the token owner has access to the Figma file or Linear project
 2. Check that API keys have appropriate scopes
-3. Re-authenticate with a user that has proper permissions
+3. Contact your admin to update the token
 
-### Tools work for one agent but not another
-**Cause**: OAuth authentication is session-specific
+### Tools not loading
+**Cause**: Token may not be configured or settings.json wasn't generated correctly
 **Fix**:
-1. Each agent needs to authenticate separately with OAuth
-2. Use token authentication (env vars) to share auth across all agents
-3. This is a known limitation of session-based OAuth storage
+1. Run `/mcp` to check MCP server status
+2. If status shows "Token auth", tools should work — try again
+3. If no token configured, use `/linear` or `/figma` slash commands as fallback
 
 ## Implementation Details
 
@@ -181,14 +161,14 @@ gcloud run services update claude-swarm \
       "type": "http",
       "url": "https://mcp.figma.com/mcp",
       "headers": {
-        "Authorization": "Bearer figd_xxxxx"  // Only if token provided
+        "Authorization": "Bearer figd_xxxxx"
       }
     },
     "linear": {
       "type": "http",
       "url": "https://mcp.linear.app/mcp",
       "headers": {
-        "Authorization": "Bearer lin_api_xxxxx"  // Only if token provided
+        "Authorization": "Bearer lin_api_xxxxx"
       }
     }
   }
@@ -203,22 +183,6 @@ gcloud run services update claude-swarm \
 5. MCP servers loaded and tools become available
 6. Agent can immediately use MCP tools
 
-### OAuth Storage Location
-- **Settings**: `~/.claude/settings.json` (shared across all agents)
-- **Session auth**: `~/.claude/session-env/{session-id}/` (per-agent)
-- **Issue**: OAuth tokens in session-env are not shared between agents
-
-## Future Improvements
-
-### OAuth State Sharing
-To enable OAuth authentication sharing across agents, we would need to:
-1. Implement a shared OAuth token store (database or file-based)
-2. Intercept OAuth callbacks and persist tokens globally
-3. Inject stored tokens into new agent sessions
-4. Handle token refresh and expiration
-
-This is not currently implemented, so **token authentication is recommended for production** where multiple agents need the same MCP access.
-
 ### Additional MCP Servers
 The platform can be extended with more MCP servers by:
 1. Adding to `mcp/settings-template.json`
@@ -226,10 +190,8 @@ The platform can be extended with more MCP servers by:
 3. Restarting the container
 4. Tools automatically available to all agents
 
-Potential integrations:
+Supported integrations:
 - GitHub (already supported via stdio)
 - Notion (already supported via stdio)
 - Slack (already supported via stdio)
 - Google Calendar (already supported via stdio)
-- Jira (would need HTTP MCP server)
-- Confluence (would need HTTP MCP server)
