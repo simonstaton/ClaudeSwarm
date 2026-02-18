@@ -226,7 +226,9 @@ export function Settings() {
     api
       .fetchAgents()
       .then(setAgents)
-      .catch(() => {});
+      .catch((err) => {
+        console.error("Failed to fetch agents:", err);
+      });
   }, [api]);
 
   return (
@@ -269,14 +271,21 @@ export function Settings() {
 // ── Shared Context Panel ────────────────────────────────────────────────────
 function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [files, setFiles] = useState<ContextFile[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const editor = useFileEditor();
   const folders = useFolderToggle();
 
   const refresh = useCallback(async () => {
-    const list = await api.listContext();
-    setFiles(list);
+    try {
+      const list = await api.listContext();
+      setFiles(list);
+    } catch (err) {
+      console.error("Failed to list context files:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [api]);
 
   useEffect(() => {
@@ -295,7 +304,8 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
     try {
       const text = await api.readContext(name);
       editor.setLoaded(text);
-    } catch {
+    } catch (err) {
+      console.error("Failed to load context file:", err);
       editor.setLoaded("");
       editor.flashMessage("Failed to load file");
     }
@@ -308,7 +318,8 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       await api.updateContext(selected, editor.content);
       editor.markSaved();
       refresh();
-    } catch {
+    } catch (err) {
+      console.error("Failed to save context file:", err);
       editor.flashMessage("Failed to save");
     } finally {
       editor.setSaving(false);
@@ -327,7 +338,8 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       await refresh();
       setSelected(filename);
       editor.setLoaded(initialContent);
-    } catch {
+    } catch (err) {
+      console.error("Failed to create context file:", err);
       editor.flashMessage("Failed to create file");
     }
   };
@@ -341,7 +353,8 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
         editor.setLoaded("");
       }
       refresh();
-    } catch {
+    } catch (err) {
+      console.error("Failed to delete context file:", err);
       editor.flashMessage("Failed to delete");
     }
   };
@@ -354,6 +367,9 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       <div className="w-56 flex-shrink-0 space-y-2">
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Context files</p>
         <p className="text-xs text-zinc-600 mb-3">Shared .md files accessible to all agents</p>
+        {loading ? (
+          <p className="text-xs text-zinc-600">Loading...</p>
+        ) : (
         <TreeList
           nodes={tree}
           depth={0}
@@ -377,6 +393,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
             )
           }
         />
+        )}
         <div className="flex gap-1 mt-3">
           <TextField
             value={newName}
@@ -440,6 +457,7 @@ const TREE_CATEGORIES: Record<string, string> = {
 
 function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [files, setFiles] = useState<ClaudeConfigFile[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ClaudeConfigFile | null>(null);
   const [newSkillName, setNewSkillName] = useState("");
   const [creatingSkill, setCreatingSkill] = useState(false);
@@ -450,7 +468,11 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
     try {
       const list = await api.listClaudeConfig();
       setFiles(list);
-    } catch {}
+    } catch (err) {
+      console.error("Failed to list Claude config files:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [api]);
 
   useEffect(() => {
@@ -475,7 +497,8 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
     try {
       const text = await api.readClaudeConfig(file.path);
       editor.setLoaded(text);
-    } catch {
+    } catch (err) {
+      console.error("Failed to load Claude config file:", err);
       editor.setLoaded("Failed to load");
     }
   };
@@ -548,7 +571,10 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
           Edit Claude config, skills, and memory. Changes are synced to GCS and persist across Cloud Run reloads.
         </p>
 
-        {grouped.map((group) => {
+        {loading ? (
+          <p className="text-xs text-zinc-600">Loading...</p>
+        ) : (
+        grouped.map((group) => {
           const stripPrefix = TREE_CATEGORIES[group.category];
           const useTree = stripPrefix && group.files.some((f) => f.name.includes("/"));
 
@@ -650,7 +676,8 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
               )}
             </div>
           );
-        })}
+        })
+        )}
       </div>
 
       {/* Editor */}
@@ -745,7 +772,9 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
     api
       .getSettings()
       .then((s) => setHint(s.anthropicKeyHint))
-      .catch(() => {});
+      .catch((err) => {
+        console.error("Failed to get settings:", err);
+      });
   }, [api]);
 
   const switchKey = async () => {
@@ -757,7 +786,8 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
       setNewKey("");
       setMessage("API key updated. New agents will use this key.");
       setTimeout(() => setMessage(""), 4000);
-    } catch {
+    } catch (err) {
+      console.error("Failed to set Anthropic API key:", err);
       setMessage("Invalid key format (must start with sk-ant-)");
     }
   };

@@ -6,6 +6,7 @@ import { usePageVisible } from "./usePageVisible";
 export function useAgentPolling() {
   const api = useApi();
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
   const visible = usePageVisible();
 
   const refreshAgents = useCallback(async () => {
@@ -14,6 +15,8 @@ export function useAgentPolling() {
       setAgents(list);
     } catch (err) {
       console.error("[useAgentPolling] fetch failed", err);
+    } finally {
+      setLoading(false);
     }
   }, [api]);
 
@@ -25,5 +28,5 @@ export function useAgentPolling() {
     return () => clearInterval(interval);
   }, [refreshAgents, visible]);
 
-  return { agents, refreshAgents };
+  return { agents, refreshAgents, loading };
 }

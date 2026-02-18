@@ -43,7 +43,8 @@ export function AgentView() {
         // Clear events before reconnecting to prevent old data from accumulating
         clearEventsRef.current();
         reconnectRef.current();
-      } catch {
+      } catch (err) {
+        console.error("Failed to load agent:", err);
         if (!cancelled) navigate("/");
       }
     };

@@ -196,7 +196,8 @@ export function PromptInput({
       try {
         const results = await onSearchFiles(fileFilter);
         setFileResults(results);
-      } catch {
+      } catch (err) {
+        console.error("Failed to search files:", err);
         setFileResults([]);
       } finally {
         setFileSearching(false);
