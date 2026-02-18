@@ -43,7 +43,9 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
     try {
       const msgs = await api.fetchMessages({ limit: 50 });
       setMessages(msgs);
-    } catch {}
+    } catch (err) {
+      console.error("[MessageFeed] refresh failed", err);
+    }
   }, [api]);
 
   useEffect(() => {
@@ -75,7 +77,9 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
       setMsgContent("");
       setComposerOpen(false);
       await refresh();
-    } catch {}
+    } catch (err) {
+      console.error("[MessageFeed] send failed", err);
+    }
     setSending(false);
   };
 

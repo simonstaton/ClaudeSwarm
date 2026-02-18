@@ -19,7 +19,8 @@ export function useKillSwitch() {
     try {
       const s = await api.getKillSwitchState();
       setState(s);
-    } catch {
+    } catch (err) {
+      console.error("[useKillSwitch] fetch failed", err);
       // Swallow — if server is unreachable we don't want to spam errors
     }
   }, [api]);

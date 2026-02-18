@@ -13,7 +13,7 @@ import { useKillSwitchContext } from "../App";
 export function Dashboard() {
   const navigate = useNavigate();
   const api = useApi();
-  const { agents, refreshAgents } = useAgentPolling();
+  const { agents, loading, refreshAgents } = useAgentPolling();
   const [creating, setCreating] = useState(false);
   const killSwitch = useKillSwitchContext();
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
@@ -75,7 +75,13 @@ export function Dashboard() {
           <main className="flex-1 overflow-y-auto p-6">
             <h2 className="text-lg font-medium mb-6">Agents</h2>
 
-            {agents.length === 0 ? (
+            {loading && agents.length === 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 rounded-lg bg-zinc-800/50 animate-pulse" />
+                ))}
+              </div>
+            ) : agents.length === 0 ? (
               <div className="py-8">
                 <p className="text-zinc-500 text-sm mb-4">No agents running. Pick a template or type a prompt below.</p>
                 <AgentTemplates onSelect={handleTemplateSelect} />

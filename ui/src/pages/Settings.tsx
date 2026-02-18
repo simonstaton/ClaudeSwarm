@@ -228,7 +228,9 @@ export function Settings() {
     api
       .fetchAgents()
       .then(setAgents)
-      .catch(() => {});
+      .catch((err) => {
+        console.error("[Settings] fetchAgents failed", err);
+      });
   }, [api]);
 
   return (
@@ -297,7 +299,8 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
     try {
       const text = await api.readContext(name);
       editor.setLoaded(text);
-    } catch {
+    } catch (err) {
+      console.error("[ContextPanel] loadFile failed", err);
       editor.setLoaded("");
       editor.flashMessage("Failed to load file");
     }
@@ -310,7 +313,8 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       await api.updateContext(selected, editor.content);
       editor.markSaved();
       refresh();
-    } catch {
+    } catch (err) {
+      console.error("[ContextPanel] saveFile failed", err);
       editor.flashMessage("Failed to save");
     } finally {
       editor.setSaving(false);
@@ -329,7 +333,8 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       await refresh();
       setSelected(filename);
       editor.setLoaded(initialContent);
-    } catch {
+    } catch (err) {
+      console.error("[ContextPanel] createFile failed", err);
       editor.flashMessage("Failed to create file");
     }
   };
@@ -343,7 +348,8 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
         editor.setLoaded("");
       }
       refresh();
-    } catch {
+    } catch (err) {
+      console.error("[ContextPanel] deleteFile failed", err);
       editor.flashMessage("Failed to delete");
     }
   };
@@ -452,7 +458,9 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
     try {
       const list = await api.listClaudeConfig();
       setFiles(list);
-    } catch {}
+    } catch (err) {
+      console.error("[ConfigPanel] refresh failed", err);
+    }
   }, [api]);
 
   useEffect(() => {
@@ -477,7 +485,8 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
     try {
       const text = await api.readClaudeConfig(file.path);
       editor.setLoaded(text);
-    } catch {
+    } catch (err) {
+      console.error("[ConfigPanel] loadFile failed", err);
       editor.setLoaded("Failed to load");
     }
   };
@@ -747,7 +756,9 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
     api
       .getSettings()
       .then((s) => setHint(s.anthropicKeyHint))
-      .catch(() => {});
+      .catch((err) => {
+        console.error("[ApiKeyPanel] getSettings failed", err);
+      });
   }, [api]);
 
   const switchKey = async () => {
@@ -759,7 +770,8 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
       setNewKey("");
       setMessage("API key updated. New agents will use this key.");
       setTimeout(() => setMessage(""), 4000);
-    } catch {
+    } catch (err) {
+      console.error("[ApiKeyPanel] switchKey failed", err);
       setMessage("Invalid key format (must start with sk-ant-)");
     }
   };
