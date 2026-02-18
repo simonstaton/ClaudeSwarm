@@ -1,6 +1,6 @@
 project_id        = "your-gcp-project-id"
 region            = "europe-west2"
-anthropic_api_key = "sk-ant-..."
+openrouter_api_key = "sk-or-v1-..."
 agent_api_key     = "your-login-key-here"
 image             = "europe-west2-docker.pkg.dev/your-project/claude-swarm/claude-swarm:latest"
 

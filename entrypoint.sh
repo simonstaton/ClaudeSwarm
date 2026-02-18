@@ -2,8 +2,10 @@
 set -e
 
 # ── 1. Inject API key suffix for trust dialog ─────────────────────────────────
-if [ -n "$ANTHROPIC_API_KEY" ]; then
-  KEY_SUFFIX="${ANTHROPIC_API_KEY: -20}" node -e "
+# With OpenRouter, the auth token is in ANTHROPIC_AUTH_TOKEN (ANTHROPIC_API_KEY is empty).
+AUTH_KEY="${ANTHROPIC_AUTH_TOKEN:-$ANTHROPIC_API_KEY}"
+if [ -n "$AUTH_KEY" ]; then
+  KEY_SUFFIX="${AUTH_KEY: -20}" node -e "
     const fs = require('fs');
     const suffix = process.env.KEY_SUFFIX || '';
     const cfg = JSON.parse(fs.readFileSync('/home/agent/.claude.json', 'utf8'));

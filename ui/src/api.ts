@@ -252,21 +252,20 @@ export function createApi(authFetch: AuthFetch) {
     },
 
     // Settings
-    async getSettings(): Promise<{ anthropicKeyHint: string; models: string[] }> {
+    async getSettings(): Promise<{ anthropicKeyHint: string; keyMode: "openrouter" | "anthropic"; models: string[] }> {
       const res = await authFetch("/api/settings");
       if (!res.ok) throw new Error("Failed to get settings");
       return res.json();
     },
 
-    async setAnthropicKey(key: string): Promise<string> {
+    async setAnthropicKey(key: string): Promise<{ hint: string; keyMode: "openrouter" | "anthropic" }> {
       const res = await authFetch("/api/settings/anthropic-key", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key }),
       });
       if (!res.ok) throw new Error("Invalid API key format");
-      const data = await res.json();
-      return data.hint;
+      return res.json();
     },
 
     // Messages

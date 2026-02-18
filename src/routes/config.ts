@@ -12,16 +12,17 @@ export function createConfigRouter() {
 
   // Get current settings
   router.get("/api/settings", (_req, res) => {
-    const key = process.env.ANTHROPIC_API_KEY || "";
+    const isOpenRouter = !!process.env.ANTHROPIC_AUTH_TOKEN;
+    const key = isOpenRouter ? process.env.ANTHROPIC_AUTH_TOKEN! : (process.env.ANTHROPIC_API_KEY || "");
     res.json({
       anthropicKeyHint: key ? `...${key.slice(-8)}` : "(not set)",
+      keyMode: isOpenRouter ? "openrouter" : "anthropic",
       models: ["claude-haiku-4-5-20251001", "claude-sonnet-4-5-20250929", "claude-sonnet-4-6", "claude-opus-4-6"],
     });
   });
 
-  // Switch Anthropic API key
+  // Switch API key — supports both OpenRouter (sk-or-) and direct Anthropic (sk-ant-)
   router.put("/api/settings/anthropic-key", (req: Request, res: Response) => {
-    // Only human users can change the API key — reject agent service tokens
     // biome-ignore lint/suspicious/noExplicitAny: Express Request augmentation for auth
     const user = (req as any).user;
     if (user?.sub === "agent-service") {
@@ -29,14 +30,23 @@ export function createConfigRouter() {
       return;
     }
     const { key } = req.body ?? {};
-    if (!key || typeof key !== "string" || !key.startsWith("sk-ant-")) {
-      res.status(400).json({ error: "Invalid Anthropic API key format" });
+    if (!key || typeof key !== "string" || !(key.startsWith("sk-or-") || key.startsWith("sk-ant-"))) {
+      res.status(400).json({ error: "Invalid API key format (expected sk-or-... or sk-ant-...)" });
       return;
     }
-    process.env.ANTHROPIC_API_KEY = key;
+    const isOpenRouter = key.startsWith("sk-or-");
+    if (isOpenRouter) {
+      process.env.ANTHROPIC_AUTH_TOKEN = key;
+      process.env.ANTHROPIC_API_KEY = "";
+      process.env.ANTHROPIC_BASE_URL = "https://openrouter.ai/api";
+    } else {
+      process.env.ANTHROPIC_API_KEY = key;
+      delete process.env.ANTHROPIC_AUTH_TOKEN;
+      delete process.env.ANTHROPIC_BASE_URL;
+    }
     resetSanitizeCache();
-    console.warn(`[AUDIT] Anthropic API key changed by user: ${user?.sub ?? "unknown"}`);
-    res.json({ ok: true, hint: `...${key.slice(-8)}` });
+    console.warn(`[AUDIT] API key changed to ${isOpenRouter ? "OpenRouter" : "Anthropic"} by user: ${user?.sub ?? "unknown"}`);
+    res.json({ ok: true, hint: `...${key.slice(-8)}`, keyMode: isOpenRouter ? "openrouter" : "anthropic" });
   });
 
   // List editable Claude config files

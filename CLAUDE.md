@@ -95,7 +95,7 @@ gcloud run services update claude-swarm \
 ### Configuration
 All secrets and config are in `terraform/terraform.tfvars` (gitignored). Required vars:
 - `project_id`, `region`, `image` — GCP config
-- `anthropic_api_key` — Claude API key
+- `openrouter_api_key` — OpenRouter API key (used as `ANTHROPIC_AUTH_TOKEN`)
 - `agent_api_key` — login key for the web UI
 
 Optional MCP integrations (see `mcp/README.md`):
@@ -139,7 +139,9 @@ cd swarm-workdir && npm install && cd ui && npm install && cd ..
 
 # 3. Create minimal .env for local dev
 cat > .env << 'ENVEOF'
-ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+ANTHROPIC_BASE_URL=https://openrouter.ai/api
+ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
+ANTHROPIC_API_KEY=
 API_KEY=dev-test-key
 JWT_SECRET=dev-secret
 SHARED_CONTEXT_DIR=./shared-context
@@ -155,7 +157,7 @@ npm start &
 ```
 
 **Notes:**
-- The `ANTHROPIC_API_KEY` env var is already available in the agent environment
+- The `ANTHROPIC_AUTH_TOKEN` env var is already available in the agent environment
 - Use `API_KEY=dev-test-key` for local testing — exchange it for a JWT via `POST /api/auth/token`
 - The dev server (`npm run dev`) runs Vite on port 5173 with HMR, proxying API calls to port 8080
 - For headless UI testing, agents can use `curl` against the API endpoints directly

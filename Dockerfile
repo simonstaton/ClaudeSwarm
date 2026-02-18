@@ -37,8 +37,9 @@ RUN mkdir -p /home/agent/.claude /shared-context /persistent/repos /persistent/t
 
 USER agent
 
-# API key helper script
-RUN echo 'echo ${ANTHROPIC_API_KEY}' > /home/agent/.claude/api_key_helper.sh \
+# API key helper script — returns ANTHROPIC_AUTH_TOKEN (OpenRouter key)
+# ANTHROPIC_API_KEY must be empty for OpenRouter; auth uses ANTHROPIC_AUTH_TOKEN instead.
+RUN echo 'echo ${ANTHROPIC_AUTH_TOKEN}' > /home/agent/.claude/api_key_helper.sh \
   && chmod +x /home/agent/.claude/api_key_helper.sh
 
 # Global identity config (~/.claude.json)

@@ -15,7 +15,8 @@ describe("sanitizeEvent", () => {
   beforeEach(() => {
     resetSanitizeCache();
     process.env.AGENT_AUTH_TOKEN = "eyJhbGciOiJIUzI1NiJ9.test-service-token-value";
-    process.env.ANTHROPIC_API_KEY = "sk-ant-api03-test-key-value-1234567890";
+    process.env.ANTHROPIC_API_KEY = "";
+    process.env.ANTHROPIC_AUTH_TOKEN = "sk-or-v1-test-openrouter-key-1234567890";
     process.env.GITHUB_TOKEN = "ghp_test1234567890abcdef";
     process.env.JWT_SECRET = "super-secret-jwt-key-12345";
   });
@@ -37,7 +38,7 @@ describe("sanitizeEvent", () => {
     expect(sanitized.text).toContain("curl");
   });
 
-  it("redacts ANTHROPIC_API_KEY from nested content", () => {
+  it("redacts ANTHROPIC_AUTH_TOKEN from nested content", () => {
     const event = makeEvent({
       type: "assistant",
       message: {
@@ -45,7 +46,7 @@ describe("sanitizeEvent", () => {
           {
             type: "tool_use",
             name: "Bash",
-            input: { command: `echo ${process.env.ANTHROPIC_API_KEY}` },
+            input: { command: `echo ${process.env.ANTHROPIC_AUTH_TOKEN}` },
           },
         ],
       },
@@ -55,19 +56,19 @@ describe("sanitizeEvent", () => {
     const msg = (sanitized as Record<string, unknown>).message as {
       content: Array<{ input: { command: string } }>;
     };
-    expect(msg.content[0].input.command).not.toContain(process.env.ANTHROPIC_API_KEY);
+    expect(msg.content[0].input.command).not.toContain(process.env.ANTHROPIC_AUTH_TOKEN);
     expect(msg.content[0].input.command).toContain("[REDACTED]");
   });
 
   it("redacts multiple different secrets in the same string", () => {
     const event: StreamEvent = {
       type: "raw",
-      text: `TOKEN=${process.env.AGENT_AUTH_TOKEN} KEY=${process.env.ANTHROPIC_API_KEY}`,
+      text: `TOKEN=${process.env.AGENT_AUTH_TOKEN} KEY=${process.env.ANTHROPIC_AUTH_TOKEN}`,
     };
 
     const sanitized = sanitizeEvent(event);
     expect(sanitized.text).not.toContain(process.env.AGENT_AUTH_TOKEN);
-    expect(sanitized.text).not.toContain(process.env.ANTHROPIC_API_KEY);
+    expect(sanitized.text).not.toContain(process.env.ANTHROPIC_AUTH_TOKEN);
     expect((sanitized.text as string).match(/\[REDACTED\]/g)?.length).toBe(2);
   });
 
@@ -140,7 +141,7 @@ describe("sanitizeEvent", () => {
     expect(sanitized.text).toBe("new-secret-token-value");
 
     // Set a new secret and reset cache
-    process.env.ANTHROPIC_API_KEY = "new-secret-token-value";
+    process.env.ANTHROPIC_AUTH_TOKEN = "new-secret-token-value";
     resetSanitizeCache();
 
     sanitized = sanitizeEvent(event);

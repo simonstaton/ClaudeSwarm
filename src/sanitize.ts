@@ -6,6 +6,7 @@ function getSecretPatterns(): string[] {
   const secretEnvVars = [
     "AGENT_AUTH_TOKEN",
     "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
     "GITHUB_TOKEN",
     "JWT_SECRET",
     "API_KEY",

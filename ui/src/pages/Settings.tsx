@@ -767,13 +767,17 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
 // ── API Key Panel ───────────────────────────────────────────────────────────
 function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [hint, setHint] = useState("");
+  const [mode, setMode] = useState<"openrouter" | "anthropic">("openrouter");
   const [newKey, setNewKey] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     api
       .getSettings()
-      .then((s) => setHint(s.anthropicKeyHint))
+      .then((s) => {
+        setHint(s.anthropicKeyHint);
+        setMode(s.keyMode);
+      })
       .catch((err) => {
         console.error("[ApiKeyPanel] getSettings failed", err);
       });
@@ -783,25 +787,33 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
     const key = newKey.trim();
     if (!key) return;
     try {
-      const newHint = await api.setAnthropicKey(key);
-      setHint(newHint);
+      const data = await api.setAnthropicKey(key);
+      setHint(data.hint);
+      setMode(data.keyMode);
       setNewKey("");
-      setMessage("API key updated. New agents will use this key.");
+      const label = data.keyMode === "openrouter" ? "OpenRouter" : "Anthropic";
+      setMessage(`Switched to ${label}. New agents will use this key.`);
       setTimeout(() => setMessage(""), 4000);
     } catch (err) {
       console.error("[ApiKeyPanel] switchKey failed", err);
-      setMessage("Invalid key format (must start with sk-ant-)");
+      setMessage("Invalid key format (expected sk-or-... or sk-ant-...)");
     }
   };
+
+  const modeLabel = mode === "openrouter" ? "OpenRouter" : "Anthropic";
 
   return (
     <div className="max-w-lg space-y-6">
       <div>
-        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Current Anthropic API Key</p>
+        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">
+          Current API Key
+          <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${mode === "openrouter" ? "bg-emerald-900/50 text-emerald-400" : "bg-orange-900/50 text-orange-400"}`}>
+            {modeLabel}
+          </span>
+        </p>
         <div className="px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-800 font-mono text-sm text-zinc-300">
           {hint || "Loading..."}
         </div>
-        <p className="text-xs text-zinc-600 mt-1">Switch between personal and work API keys at runtime</p>
       </div>
 
       <div>
@@ -810,7 +822,7 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
           <PasswordField
             value={newKey}
             onChange={(e) => setNewKey(e.target.value)}
-            placeholder="sk-ant-..."
+            placeholder="sk-or-v1-... or sk-ant-..."
             size="40"
             fullWidth
           />

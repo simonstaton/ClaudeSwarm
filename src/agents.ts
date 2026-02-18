@@ -1040,7 +1040,7 @@ export class AgentManager {
     // Remove nested session detection so spawned agents don't refuse to start
     delete env.CLAUDECODE;
     // Layer 0: Remove server-only secrets agents must never have.
-    // Agents keep ANTHROPIC_API_KEY and GITHUB_TOKEN (needed for their work)
+    // Agents keep ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, and GITHUB_TOKEN (needed for their work)
     // but lose the ability to forge tokens or authenticate as the server.
     delete env.JWT_SECRET;
     delete env.API_KEY;

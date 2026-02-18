@@ -5,7 +5,7 @@ resource "google_service_account" "swarm" {
 
 # Secret Manager access
 resource "google_secret_manager_secret_iam_member" "anthropic_key" {
-  secret_id = google_secret_manager_secret.anthropic_api_key.id
+  secret_id = google_secret_manager_secret.openrouter_api_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.swarm.email}"
 }

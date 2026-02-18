@@ -35,15 +35,25 @@ resource "google_cloud_run_v2_service" "swarm" {
         container_port = 8080
       }
 
-      # Core secrets
+      # OpenRouter — replaces direct Anthropic API access
       env {
-        name = "ANTHROPIC_API_KEY"
+        name  = "ANTHROPIC_BASE_URL"
+        value = "https://openrouter.ai/api"
+      }
+
+      env {
+        name = "ANTHROPIC_AUTH_TOKEN"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.anthropic_api_key.secret_id
+            secret  = google_secret_manager_secret.openrouter_api_key.secret_id
             version = "latest"
           }
         }
+      }
+
+      env {
+        name  = "ANTHROPIC_API_KEY"
+        value = ""
       }
 
       env {

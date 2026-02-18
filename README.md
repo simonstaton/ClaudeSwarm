@@ -27,7 +27,9 @@ git clone https://github.com/simonstaton/ClaudeSwarm.git
 cd ClaudeSwarm
 cp .env.example .env
 # Edit .env — you need at minimum:
-#   ANTHROPIC_API_KEY=sk-ant-...
+#   ANTHROPIC_BASE_URL=https://openrouter.ai/api
+#   ANTHROPIC_AUTH_TOKEN=sk-or-v1-...
+#   ANTHROPIC_API_KEY=           (must be empty for OpenRouter)
 #   API_KEY=use-this-password-to-access-the-ui
 #   JWT_SECRET=any-random-string
 npm run setup
@@ -178,7 +180,7 @@ Agent state is automatically saved to GCS and restored on container restart, so 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/settings` | Get current settings (key hint, available models) |
-| PUT | `/api/settings/anthropic-key` | Switch Anthropic API key at runtime |
+| PUT | `/api/settings/anthropic-key` | Switch API key at runtime (OpenRouter or Anthropic) |
 
 ### Kill Switch
 | Method | Path | Description |
@@ -191,21 +193,17 @@ Agent state is automatically saved to GCS and restored on container restart, so 
 |--------|------|-------------|
 | GET | `/api/health` | Health check (no auth required) |
 
-## Switching Anthropic API keys
+## OpenRouter support
 
-You can switch between personal and work API keys at runtime:
+The platform routes all Claude API traffic through [OpenRouter](https://openrouter.ai/docs/guides/community/anthropic-agent-sdk) instead of calling the Anthropic API directly. Three env vars control this:
 
-**Via UI**: Settings in the header (shows current key hint like `...abc12345`)
+| Variable | Value |
+|----------|-------|
+| `ANTHROPIC_BASE_URL` | `https://openrouter.ai/api` |
+| `ANTHROPIC_AUTH_TOKEN` | Your OpenRouter key (`sk-or-v1-...`) |
+| `ANTHROPIC_API_KEY` | Must be empty |
 
-**Via API**:
-```bash
-curl -X PUT http://localhost:8080/api/settings/anthropic-key \
-  -H "Authorization: Bearer $JWT" \
-  -H "Content-Type: application/json" \
-  -d '{"key": "sk-ant-your-other-key"}'
-```
-
-New agents will use the updated key. Existing agents keep their original key until restarted.
+You can switch keys at runtime via the Settings UI or API. Both OpenRouter (`sk-or-...`) and direct Anthropic (`sk-ant-...`) keys are accepted.
 
 ## Security considerations
 
@@ -342,7 +340,7 @@ terraform apply
 This creates:
 - Cloud Run service (8GB RAM, 4 CPU, max 5 instances)
 - GCS bucket for persistence
-- Secret Manager secrets (Anthropic key, API key, JWT secret)
+- Secret Manager secrets (OpenRouter key, API key, JWT secret)
 - Service account with minimal permissions
 - Optional MCP server secrets
 
@@ -467,7 +465,9 @@ docker build -t claude-swarm .
 
 # Run
 docker run -p 8080:8080 \
-  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -e ANTHROPIC_BASE_URL=https://openrouter.ai/api \
+  -e ANTHROPIC_AUTH_TOKEN=sk-or-v1-... \
+  -e ANTHROPIC_API_KEY= \
   -e API_KEY=your-password \
   -e JWT_SECRET=any-random-string \
   claude-swarm

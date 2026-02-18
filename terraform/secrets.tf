@@ -3,16 +3,16 @@ resource "random_password" "jwt_secret" {
   special = false
 }
 
-resource "google_secret_manager_secret" "anthropic_api_key" {
-  secret_id = "anthropic-api-key"
+resource "google_secret_manager_secret" "openrouter_api_key" {
+  secret_id = "openrouter-api-key"
   replication {
     auto {}
   }
 }
 
-resource "google_secret_manager_secret_version" "anthropic_api_key" {
-  secret      = google_secret_manager_secret.anthropic_api_key.id
-  secret_data = var.anthropic_api_key
+resource "google_secret_manager_secret_version" "openrouter_api_key" {
+  secret      = google_secret_manager_secret.openrouter_api_key.id
+  secret_data = var.openrouter_api_key
 }
 
 resource "google_secret_manager_secret" "agent_api_key" {

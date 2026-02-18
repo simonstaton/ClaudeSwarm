@@ -9,8 +9,8 @@ variable "region" {
   default     = "us-central1"
 }
 
-variable "anthropic_api_key" {
-  description = "Anthropic API key for Claude"
+variable "openrouter_api_key" {
+  description = "OpenRouter API key (used as ANTHROPIC_AUTH_TOKEN)"
   type        = string
   sensitive   = true
 }
