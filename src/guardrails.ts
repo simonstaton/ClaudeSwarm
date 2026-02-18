@@ -32,3 +32,27 @@ export let SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 // is destroyed (chain breaks, depth resets to 0).
 export let MAX_AGENT_DEPTH = 3;
 export let MAX_CHILDREN_PER_AGENT = 20;
+
+// Setters — ES module namespace objects are read-only, so external modules
+// must call these instead of assigning to the exports directly.
+export function setMaxPromptLength(v: number) {
+  MAX_PROMPT_LENGTH = v;
+}
+export function setMaxTurns(v: number) {
+  MAX_TURNS = v;
+}
+export function setMaxAgents(v: number) {
+  MAX_AGENTS = v;
+}
+export function setMaxBatchSize(v: number) {
+  MAX_BATCH_SIZE = v;
+}
+export function setSessionTtlMs(v: number) {
+  SESSION_TTL_MS = v;
+}
+export function setMaxAgentDepth(v: number) {
+  MAX_AGENT_DEPTH = v;
+}
+export function setMaxChildrenPerAgent(v: number) {
+  MAX_CHILDREN_PER_AGENT = v;
+}

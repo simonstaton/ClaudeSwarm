@@ -280,7 +280,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxPromptLength must be between 1,000 and 1,000,000" });
         return;
       }
-      guardrails.MAX_PROMPT_LENGTH = val;
+      guardrails.setMaxPromptLength(val);
       updates.maxPromptLength = val;
     }
 
@@ -290,7 +290,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxTurns must be between 1 and 10,000" });
         return;
       }
-      guardrails.MAX_TURNS = val;
+      guardrails.setMaxTurns(val);
       updates.maxTurns = val;
     }
 
@@ -300,7 +300,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxAgents must be between 1 and 100" });
         return;
       }
-      guardrails.MAX_AGENTS = val;
+      guardrails.setMaxAgents(val);
       updates.maxAgents = val;
     }
 
@@ -310,7 +310,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxBatchSize must be between 1 and 50" });
         return;
       }
-      guardrails.MAX_BATCH_SIZE = val;
+      guardrails.setMaxBatchSize(val);
       updates.maxBatchSize = val;
     }
 
@@ -320,7 +320,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxAgentDepth must be between 1 and 10" });
         return;
       }
-      guardrails.MAX_AGENT_DEPTH = val;
+      guardrails.setMaxAgentDepth(val);
       updates.maxAgentDepth = val;
     }
 
@@ -330,7 +330,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "maxChildrenPerAgent must be between 1 and 20" });
         return;
       }
-      guardrails.MAX_CHILDREN_PER_AGENT = val;
+      guardrails.setMaxChildrenPerAgent(val);
       updates.maxChildrenPerAgent = val;
     }
 
@@ -340,7 +340,7 @@ export function createConfigRouter() {
         res.status(400).json({ error: "sessionTtlMs must be between 1 minute and 24 hours" });
         return;
       }
-      guardrails.SESSION_TTL_MS = val;
+      guardrails.setSessionTtlMs(val);
       updates.sessionTtlMs = val;
     }
 
