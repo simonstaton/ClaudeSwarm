@@ -130,5 +130,14 @@ export function validateMessage(req: Request, res: Response, next: NextFunction)
     }
     req.body.maxTurns = turns;
   }
+  // Layer 5: Apply blocked patterns on message() too, not just create().
+  // Closes the gap where an agent gets an innocent initial prompt, then receives
+  // blocked content via follow-up messages.
+  for (const pattern of BLOCKED_COMMAND_PATTERNS) {
+    if (pattern.test(prompt as string)) {
+      res.status(400).json({ error: "Message contains blocked content" });
+      return;
+    }
+  }
   next();
 }

@@ -1,6 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
+import { KillSwitchBanner } from "./components/KillSwitchBanner";
+import { useKillSwitch } from "./hooks/useKillSwitch";
 import { AgentView } from "./pages/AgentView";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
@@ -51,6 +53,26 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Provides kill switch state to all protected pages via a shared layout. */
+function AppLayout({ children }: { children: React.ReactNode }) {
+  const ks = useKillSwitch();
+  return (
+    <div className="h-screen flex flex-col overflow-hidden">
+      <KillSwitchBanner
+        state={ks.state}
+        loading={ks.loading}
+        onDeactivate={ks.deactivate}
+      />
+      {/* Pass kill switch context to children via cloneElement pattern would be complex;
+          instead pages import useKillSwitch() themselves for the panic button.
+          The banner lives here (shared) so it appears on every page. */}
+      <div className="flex-1 overflow-hidden">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function AppRoutes() {
   const { token } = useAuth();
 
@@ -61,7 +83,9 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <AppLayout>
+              <Dashboard />
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -69,7 +93,9 @@ function AppRoutes() {
         path="/agents/:id"
         element={
           <ProtectedRoute>
-            <AgentView />
+            <AppLayout>
+              <AgentView />
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -77,7 +103,9 @@ function AppRoutes() {
         path="/settings"
         element={
           <ProtectedRoute>
-            <Settings />
+            <AppLayout>
+              <Settings />
+            </AppLayout>
           </ProtectedRoute>
         }
       />

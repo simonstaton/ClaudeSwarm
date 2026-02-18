@@ -59,9 +59,14 @@ export function saveAgentState(agent: Agent): void {
 }
 
 export function loadAllAgentStates(): Agent[] {
+  // If a kill-switch tombstone exists, skip all restoration
+  if (existsSync(TOMBSTONE_FILE)) {
+    console.log("[persistence] Kill switch tombstone found — skipping agent restoration");
+    return [];
+  }
   const agents: Agent[] = [];
   try {
-    const files = readdirSync(STATE_DIR).filter((f) => f.endsWith(".json") && !f.endsWith(".tmp"));
+    const files = readdirSync(STATE_DIR).filter((f) => f.endsWith(".json") && !f.endsWith(".tmp") && !f.startsWith("_"));
     for (const file of files) {
       try {
         const data = readFileSync(path.join(STATE_DIR, file), "utf-8");
@@ -129,6 +134,33 @@ export function cleanupStaleState(): void {
   if (cleanedTmp > 0 || cleanedEvents > 0) {
     console.log(`[cleanup] Removed ${cleanedTmp} stale .tmp file(s), ${cleanedEvents} orphaned event file(s)`);
   }
+}
+
+const TOMBSTONE_FILE = path.join(STATE_DIR, "_kill-switch-tombstone");
+
+/**
+ * Write a tombstone file so loadAllAgentStates() skips all restoration on next
+ * startup, even if individual state file deletes failed (e.g. GCS FUSE delay).
+ */
+export function writeTombstone(): void {
+  try {
+    writeFileSync(TOMBSTONE_FILE, JSON.stringify({ killedAt: new Date().toISOString() }), "utf-8");
+    console.log("[persistence] Kill switch tombstone written");
+  } catch (err: unknown) {
+    console.warn("[persistence] Failed to write tombstone:", errorMessage(err));
+  }
+}
+
+/** Check if a kill-switch tombstone exists (called on startup before restoring agents). */
+export function hasTombstone(): boolean {
+  return existsSync(TOMBSTONE_FILE);
+}
+
+/** Remove the tombstone (called on kill-switch deactivation). */
+export function clearTombstone(): void {
+  try {
+    if (existsSync(TOMBSTONE_FILE)) unlinkSync(TOMBSTONE_FILE);
+  } catch { /* best-effort */ }
 }
 
 export function removeAgentState(id: string): void {

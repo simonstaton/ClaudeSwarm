@@ -312,6 +312,37 @@ export function createApi(authFetch: AuthFetch) {
       const res = await authFetch(`/api/messages/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete message");
     },
+
+    // Kill switch
+    async getKillSwitchState(): Promise<{ killed: boolean; reason?: string; activatedAt?: string }> {
+      const res = await authFetch("/api/kill-switch");
+      if (!res.ok) throw new Error("Failed to get kill switch state");
+      return res.json();
+    },
+
+    async activateKillSwitch(reason?: string): Promise<void> {
+      const res = await authFetch("/api/kill-switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "activate", reason }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to activate kill switch");
+      }
+    },
+
+    async deactivateKillSwitch(): Promise<void> {
+      const res = await authFetch("/api/kill-switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "deactivate" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to deactivate kill switch");
+      }
+    },
   };
 }
 

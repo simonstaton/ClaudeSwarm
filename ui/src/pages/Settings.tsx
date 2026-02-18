@@ -231,7 +231,7 @@ export function Settings() {
 
   return (
     <div className="h-screen flex flex-col">
-      <Header agentCount={agents.length} />
+      <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar agents={agents} activeId={null} onSelect={(id) => navigate(`/agents/${id}`)} />
         <main className="flex-1 overflow-y-auto">

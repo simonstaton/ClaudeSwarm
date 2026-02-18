@@ -8,12 +8,14 @@ import { type Attachment, PromptInput, type PromptInputDefaultValues } from "../
 import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
+import { useKillSwitch } from "../hooks/useKillSwitch";
 
 export function Dashboard() {
   const navigate = useNavigate();
   const api = useApi();
   const { agents, refreshAgents } = useAgentPolling();
   const [creating, setCreating] = useState(false);
+  const killSwitch = useKillSwitch();
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
 
   const handleTemplateSelect = useCallback((template: AgentTemplate) => {
@@ -66,7 +68,7 @@ export function Dashboard() {
 
   return (
     <div className="h-screen flex flex-col">
-      <Header agentCount={agents.length} />
+      <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar agents={agents} activeId={null} onSelect={(id) => navigate(`/agents/${id}`)} />
         <div className="flex-1 flex flex-col overflow-hidden">

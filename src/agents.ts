@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   existsSync,
@@ -14,8 +14,8 @@ import {
 import { appendFile, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { generateServiceToken } from "./auth";
-import { ALLOWED_MODELS, DEFAULT_MODEL, MAX_AGENTS, SESSION_TTL_MS } from "./guardrails";
-import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState } from "./persistence";
+import { ALLOWED_MODELS, DEFAULT_MODEL, MAX_AGENTS, MAX_AGENT_DEPTH, MAX_CHILDREN_PER_AGENT, SESSION_TTL_MS } from "./guardrails";
+import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { sanitizeEvent } from "./sanitize";
 import { syncToGCS } from "./storage";
 import { generateWorkspaceClaudeMd } from "./templates/workspace-claude-md";
@@ -46,6 +46,40 @@ function killProcessGroup(proc: ReturnType<typeof spawn>, timeoutMs = 5000): voi
   }, timeoutMs);
   // Don't let this timer keep the event loop alive
   escalation.unref();
+}
+
+/**
+ * Layer 2: Kill ALL non-init, non-server processes.
+ * Used by emergencyDestroyAll() to catch bash/node/curl/git spawned by agents
+ * that aren't tracked in our process map.
+ */
+function cleanupAllProcesses(): void {
+  try {
+    const myPid = process.pid;
+    const output = execFileSync("ps", ["-eo", "pid,ppid,comm"], {
+      encoding: "utf-8",
+      timeout: 5_000,
+    });
+    let killed = 0;
+    for (const line of output.split("\n")) {
+      const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
+      if (!match) continue;
+      const [, pidStr] = match;
+      const pid = parseInt(pidStr, 10);
+      if (pid === 1 || pid === myPid) continue;
+      try {
+        process.kill(pid, "SIGKILL");
+        killed++;
+      } catch {
+        // Already dead or no permission — skip
+      }
+    }
+    if (killed > 0) {
+      console.log(`[kill-switch] cleanupAllProcesses: killed ${killed} process(es)`);
+    }
+  } catch {
+    // ps not available — skip
+  }
 }
 
 /** Build a shared-context index with summaries from file content. */
@@ -119,6 +153,8 @@ export class AgentManager {
    *  Key: "parentId:name" or "name", Value: timestamp of creation. */
   private recentCreations = new Map<string, number>();
   private static readonly DEDUP_WINDOW_MS = 10_000; // 10 seconds
+  /** Layer 1: Set to true by kill switch — blocks create() and message() at the code level. */
+  killed = false;
 
   constructor() {
     // Cleanup idle agents every 60s
@@ -164,8 +200,24 @@ export class AgentManager {
     agent: Agent;
     subscribe: (listener: (event: StreamEvent) => void) => () => void;
   } {
+    // Layer 1: Block spawning when kill switch is active
+    if (this.killed) {
+      throw new Error('Kill switch is active — agent spawning is disabled');
+    }
     if (this.agents.size >= MAX_AGENTS) {
       throw new Error(`Maximum of ${MAX_AGENTS} agents reached`);
+    }
+    // Layer 4: Enforce immutable depth field and sibling limit
+    const parentAgent = opts.parentId ? this.get(opts.parentId) : undefined;
+    const depth = (parentAgent?.depth ?? 0) + 1;
+    if (depth > MAX_AGENT_DEPTH) {
+      throw new Error(`Maximum agent depth of ${MAX_AGENT_DEPTH} exceeded`);
+    }
+    if (opts.parentId) {
+      const siblingCount = this.list().filter((a) => a.parentId === opts.parentId).length;
+      if (siblingCount >= MAX_CHILDREN_PER_AGENT) {
+        throw new Error(`Maximum of ${MAX_CHILDREN_PER_AGENT} children per agent exceeded`);
+      }
     }
 
     const id = randomUUID();
@@ -209,6 +261,7 @@ export class AgentManager {
       role: opts.role,
       capabilities: opts.capabilities,
       parentId: opts.parentId,
+      depth, // Layer 4: immutable depth, set at creation time
     };
 
     let finalPrompt = opts.prompt;
@@ -295,6 +348,8 @@ export class AgentManager {
     maxTurns?: number,
     targetSessionId?: string,
   ): { agent: Agent; subscribe: (listener: (event: StreamEvent) => void) => () => void } {
+    // Layer 1: Block messaging when kill switch is active
+    if (this.killed) throw new Error("Kill switch is active — agent messaging is disabled");
     const agentProc = this.agents.get(id);
     if (!agentProc) throw new Error("Agent not found");
     if (!agentProc.agent.claudeSessionId) throw new Error("Agent has no session to resume");
@@ -595,6 +650,69 @@ export class AgentManager {
     for (const id of [...this.agents.keys()]) {
       this.destroy(id);
     }
+  }
+
+  /**
+   * Layer 2: Nuclear emergency shutdown — called by the kill switch.
+   * Unlike destroyAll(), this:
+   *   1. Sets killed flag immediately (blocks create/message at code level)
+   *   2. Clears all message bus listeners (prevents auto-delivery from re-triggering agents)
+   *   3. SIGKILLs all tracked processes immediately (no graceful SIGTERM)
+   *   4. Kills ALL non-init processes (not just claude — catches bash, node, curl, git, etc.)
+   *   5. Deletes ALL state files so agents are not restored on restart
+   *   6. Writes a tombstone file so loadAllAgentStates() skips restoration even if delete failed
+   *   7. Schedules a second pass at +500ms to catch processes spawned mid-kill
+   */
+  emergencyDestroyAll(): void {
+    this.killed = true;
+    clearInterval(this.cleanupInterval);
+    clearInterval(this.flushInterval);
+
+    console.log("[kill-switch] emergencyDestroyAll — starting nuclear shutdown");
+
+    // Clear all idle listeners to prevent auto-delivery from re-triggering agent runs
+    this.idleListeners.clear();
+
+    // SIGKILL all tracked processes immediately
+    for (const [id, agentProc] of this.agents) {
+      const proc = agentProc.proc;
+      if (proc) {
+        proc.stdout?.removeAllListeners();
+        proc.stderr?.removeAllListeners();
+        proc.removeAllListeners("close");
+        if (!proc.killed && proc.pid != null) {
+          try {
+            process.kill(-proc.pid, "SIGKILL");
+          } catch {
+            try { process.kill(proc.pid, "SIGKILL"); } catch { /* already dead */ }
+          }
+        }
+      }
+      agentProc.listeners.clear();
+
+      // Delete state and event files immediately
+      try { removeAgentState(id); } catch { /* best-effort */ }
+      try { unlinkSync(path.join(EVENTS_DIR, `${id}.jsonl`)); } catch { /* best-effort */ }
+    }
+
+    this.agents.clear();
+    this.writeQueues.clear();
+    this.lifecycleLocks.clear();
+    this.delivering.clear();
+
+    // Write tombstone so loadAllAgentStates() skips restoration on next startup
+    writeTombstone();
+
+    // Kill ALL non-init, non-server processes to catch bash/node/curl/git spawned by agents
+    cleanupAllProcesses();
+
+    // Second pass at +500ms to catch anything spawned mid-kill
+    setTimeout(() => {
+      cleanupAllProcesses();
+      console.log("[kill-switch] Second cleanup pass complete");
+    }, 500).unref();
+
+    console.log("[kill-switch] emergencyDestroyAll complete");
   }
 
   /** Graceful shutdown: flush state and kill processes, but preserve state files for restore. */
@@ -921,6 +1039,11 @@ export class AgentManager {
     };
     // Remove nested session detection so spawned agents don't refuse to start
     delete env.CLAUDECODE;
+    // Layer 0: Remove server-only secrets agents must never have.
+    // Agents keep ANTHROPIC_API_KEY and GITHUB_TOKEN (needed for their work)
+    // but lose the ability to forge tokens or authenticate as the server.
+    delete env.JWT_SECRET;
+    delete env.API_KEY;
     return env;
   }
 }
