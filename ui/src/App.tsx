@@ -7,6 +7,7 @@ import { type KillSwitchState, useKillSwitch } from "./hooks/useKillSwitch";
 import { AgentView } from "./pages/AgentView";
 import { CostDashboard } from "./pages/CostDashboard";
 import { Dashboard } from "./pages/Dashboard";
+import { GraphView } from "./pages/GraphView";
 import { Login } from "./pages/Login";
 import { Settings } from "./pages/Settings";
 
@@ -128,6 +129,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <AppLayout>
               <AgentView />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/graph"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <GraphView />
             </AppLayout>
           </ProtectedRoute>
         }

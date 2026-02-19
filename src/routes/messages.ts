@@ -34,6 +34,44 @@ export function createMessagesRouter(messageBus: MessageBus) {
     res.json(msg);
   });
 
+  // Post multiple messages in a single round-trip — useful for fan-out to N agents
+  // without N serial API calls. Each message is validated independently.
+  router.post("/api/messages/batch", (req: Request, res: Response) => {
+    const { messages } = req.body ?? {};
+    if (!Array.isArray(messages) || messages.length === 0) {
+      res.status(400).json({ error: "messages array is required and must not be empty" });
+      return;
+    }
+    if (messages.length > 20) {
+      res.status(400).json({ error: "Maximum batch size is 20" });
+      return;
+    }
+
+    const results: AgentMessage[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const { from, fromName, to, channel, type, content, metadata } = messages[i] ?? {};
+      if (!from || typeof from !== "string") {
+        res.status(400).json({ error: `messages[${i}]: from is required` });
+        return;
+      }
+      if (!type || !["task", "result", "question", "info", "status", "interrupt"].includes(type)) {
+        res.status(400).json({ error: `messages[${i}]: type must be one of: task, result, question, info, status, interrupt` });
+        return;
+      }
+      if (!content || typeof content !== "string") {
+        res.status(400).json({ error: `messages[${i}]: content is required` });
+        return;
+      }
+      if (content.length > 50_000) {
+        res.status(400).json({ error: `messages[${i}]: content exceeds max length of 50000` });
+        return;
+      }
+      results.push(messageBus.post({ from, fromName, to, channel, type, content, metadata }));
+    }
+
+    res.json({ messages: results });
+  });
+
   // Query messages
   router.get("/api/messages", (req: Request, res: Response) => {
     const { to, from, channel, type, unreadBy, since, limit, agentRole } = req.query;

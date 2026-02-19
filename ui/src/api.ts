@@ -42,6 +42,28 @@ export interface StreamEvent {
   [key: string]: unknown;
 }
 
+export interface TopologyNode {
+  id: string;
+  name: string;
+  status: "starting" | "running" | "idle" | "error" | "restored";
+  role?: string;
+  model: string;
+  depth: number;
+  currentTask?: string;
+  parentId?: string;
+  lastActivity: string;
+}
+
+export interface TopologyEdge {
+  source: string;
+  target: string;
+}
+
+export interface SwarmTopology {
+  nodes: TopologyNode[];
+  edges: TopologyEdge[];
+}
+
 export interface ContextFile {
   name: string;
   size: number;
@@ -168,6 +190,12 @@ export function createApi(authFetch: AuthFetch) {
       params.set("limit", "30");
       const res = await authFetch(`/api/agents/${id}/files?${params}`);
       if (!res.ok) return [];
+      return res.json();
+    },
+
+    async fetchTopology(): Promise<SwarmTopology> {
+      const res = await authFetch("/api/agents/topology");
+      if (!res.ok) throw new Error("Failed to fetch topology");
       return res.json();
     },
 

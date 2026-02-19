@@ -200,11 +200,15 @@ messageBus.subscribe((msg) => {
   }
 });
 
+// How long to wait after an agent goes idle before delivering queued messages.
+// The delay lets the agent process fully exit before a new prompt is injected.
+// Configurable via DELIVERY_SETTLE_MS env var (default: 250ms).
+const DELIVERY_SETTLE_MS = parseInt(process.env.DELIVERY_SETTLE_MS ?? "250", 10);
+
 // When an agent finishes and goes idle, check if there are unread messages
 // waiting for it and deliver the oldest one. This handles messages that arrived
 // while the agent was busy.
 agentManager.onIdle((agentId) => {
-  // Small delay to let the agent fully settle into idle state
   setTimeout(() => {
     // Skip delivery if kill switch is active
     if (isKilled()) return;
@@ -244,7 +248,7 @@ agentManager.onIdle((agentId) => {
     } finally {
       agentManager.deliveryDone(agentId);
     }
-  }, 1000);
+  }, DELIVERY_SETTLE_MS);
 });
 
 // ── Static file serving (React SPA) ────────────────────────────────────────

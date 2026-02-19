@@ -37,11 +37,33 @@ export function createAgentsRouter(
       capabilities: a.capabilities,
       currentTask: a.currentTask,
       parentId: a.parentId,
+      depth: a.depth,
       model: a.model,
       lastActivity: a.lastActivity,
       unreadMessages: messageBus.unreadCount(a.id, a.role),
     }));
     res.json(agents);
+  });
+
+  // Swarm topology graph — nodes + edges derived from parentId relationships.
+  // Agents can use this to discover direct paths to peers without multi-hop routing.
+  router.get("/api/agents/topology", (_req, res) => {
+    const agents = agentManager.list();
+    const nodes = agents.map((a) => ({
+      id: a.id,
+      name: a.name,
+      status: a.status,
+      role: a.role,
+      model: a.model,
+      depth: a.depth,
+      currentTask: a.currentTask,
+      parentId: a.parentId,
+      lastActivity: a.lastActivity,
+    }));
+    const edges = agents
+      .filter((a) => a.parentId)
+      .map((a) => ({ source: a.parentId as string, target: a.id }));
+    res.json({ nodes, edges });
   });
 
   // Batch create agents (returns JSON, not SSE — designed for spawning multiple agents at once)

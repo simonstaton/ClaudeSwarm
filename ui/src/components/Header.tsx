@@ -63,6 +63,17 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
 
           <button
             type="button"
+            onClick={() => navigate("/graph")}
+            className={`px-3 py-1.5 text-sm rounded transition-colors ${
+              location.pathname === "/graph"
+                ? "bg-zinc-700 text-zinc-100"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+            }`}
+          >
+            Graph
+          </button>
+          <button
+            type="button"
             onClick={() => navigate("/costs")}
             className={`px-3 py-1.5 text-sm rounded transition-colors ${
               location.pathname === "/costs"
