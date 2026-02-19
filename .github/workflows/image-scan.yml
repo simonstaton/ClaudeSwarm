@@ -1,0 +1,81 @@
+name: Container Image Vulnerability Scan
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC (catch newly published CVEs)
+  workflow_dispatch:
+
+jobs:
+  trivy:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # Required for SARIF upload to GitHub Security tab
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t claude-swarm:${{ github.sha }} .
+
+      # SARIF report — uploaded to GitHub Security tab for inline annotations
+      - name: Run Trivy scan (SARIF)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: claude-swarm:${{ github.sha }}
+          format: sarif
+          output: trivy-results.sarif
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-container-scan
+
+      # JSON report — full severity range, saved as CI artifact
+      - name: Run Trivy scan (JSON report)
+        uses: aquasecurity/trivy-action@0.28.0
+        if: always()
+        with:
+          image-ref: claude-swarm:${{ github.sha }}
+          format: json
+          output: trivy-results.json
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+          trivyignores: .trivyignore
+
+      # Table report — human-readable output; exits 1 if CRITICAL or HIGH found → fails the build
+      - name: Run Trivy scan (fail on CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: claude-swarm:${{ github.sha }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+
+      - name: Upload scan reports as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-scan-report-${{ github.sha }}
+          path: |
+            trivy-results.sarif
+            trivy-results.json
+          retention-days: 30

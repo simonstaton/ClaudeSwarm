@@ -16,6 +16,7 @@ jobs:
     permissions:
       contents: read
       id-token: write  # Required for Workload Identity Federation
+      security-events: write  # Required for SARIF upload to GitHub Security tab
 
     steps:
       - name: Checkout
@@ -40,16 +41,54 @@ jobs:
           docker push ${{ env.IMAGE }}:${{ github.sha }}
           docker push ${{ env.IMAGE }}:latest
 
-      - name: Scan Docker image for vulnerabilities
+      - name: Scan image (JSON report artifact)
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ github.sha }}
-          format: table
-          exit-code: 1
+          format: json
+          output: trivy-results.json
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+          trivyignores: .trivyignore
+
+      - name: Scan image (SARIF for GitHub Security tab)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          format: sarif
+          output: trivy-results.sarif
           ignore-unfixed: true
           vuln-type: os,library
           severity: CRITICAL,HIGH
           trivyignores: .trivyignore
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-container-scan
+
+      - name: Scan image (fail on CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+
+      - name: Upload scan reports as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-scan-report-${{ github.sha }}
+          path: |
+            trivy-results.json
+            trivy-results.sarif
+          retention-days: 30
 
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
