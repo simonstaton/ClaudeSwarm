@@ -1,8 +1,9 @@
 import { Alert, Button, PasswordField, Tabs, TabsContent, TabsList, TabsTrigger, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useBlocker, useNavigate } from "react-router-dom";
 import { useKillSwitchContext } from "../App";
 import type { Agent, ClaudeConfigFile, ContextFile, createApi } from "../api";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
 import { MessageFeed } from "../components/MessageFeed";
 import { Sidebar } from "../components/Sidebar";
@@ -155,6 +156,9 @@ function useFileEditor() {
   const [message, setMessage] = useState("");
   const isDirty = content !== savedContentRef.current;
 
+  // Block in-app navigation when dirty (React Router)
+  const blocker = useBlocker(isDirty);
+
   // Warn on browser tab close when dirty
   useEffect(() => {
     if (!isDirty) return;
@@ -192,6 +196,7 @@ function useFileEditor() {
     message,
     setMessage,
     isDirty,
+    blocker,
     setLoaded,
     markSaved,
     confirmDiscard,
@@ -284,6 +289,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const editor = useFileEditor();
   const folders = useFolderToggle();
 
@@ -355,7 +361,6 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
   };
 
   const deleteFile = async (name: string) => {
-    if (!confirm(`Delete ${name}?`)) return;
     try {
       await api.deleteContext(name);
       if (selected === name) {
@@ -373,6 +378,31 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
 
   return (
     <div className="flex gap-4 h-[calc(100vh-12rem)]">
+      {/* Navigation blocker dialog */}
+      <ConfirmDialog
+        open={editor.blocker.state === "blocked"}
+        title="Unsaved changes"
+        description="You have unsaved changes in the context editor. Discard them and leave?"
+        confirmLabel="Discard"
+        cancelLabel="Stay"
+        variant="destructive"
+        onConfirm={() => editor.blocker.proceed?.()}
+        onCancel={() => editor.blocker.reset?.()}
+      />
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete file"
+        description={`Are you sure you want to delete ${pendingDelete ?? "this file"}?`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={() => {
+          if (pendingDelete) deleteFile(pendingDelete);
+          setPendingDelete(null);
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
       {/* File list */}
       <div className="w-56 flex-shrink-0 space-y-2">
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Context files</p>
@@ -394,7 +424,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
                   size="24"
                   onClick={(e) => {
                     e.stopPropagation();
-                    deleteFile(node.fullPath);
+                    setPendingDelete(node.fullPath);
                   }}
                   className="text-zinc-400 hover:text-red-400"
                 >
@@ -471,6 +501,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [selected, setSelected] = useState<ClaudeConfigFile | null>(null);
   const [newSkillName, setNewSkillName] = useState("");
   const [creatingSkill, setCreatingSkill] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ClaudeConfigFile | null>(null);
   const editor = useFileEditor();
   const folders = useFolderToggle();
 
@@ -553,7 +584,6 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
   };
 
   const deleteFile = async (file: ClaudeConfigFile) => {
-    if (!confirm(`Delete ${file.name}?`)) return;
     try {
       await api.deleteClaudeConfig(file.path);
       if (selected?.path === file.path) {
@@ -575,6 +605,31 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
 
   return (
     <div className="flex gap-4 h-[calc(100vh-12rem)]">
+      {/* Navigation blocker dialog */}
+      <ConfirmDialog
+        open={editor.blocker.state === "blocked"}
+        title="Unsaved changes"
+        description="You have unsaved config changes. Discard them and leave?"
+        confirmLabel="Discard"
+        cancelLabel="Stay"
+        variant="destructive"
+        onConfirm={() => editor.blocker.proceed?.()}
+        onCancel={() => editor.blocker.reset?.()}
+      />
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete config file"
+        description={`Are you sure you want to delete ${pendingDelete?.name ?? "this file"}?`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={() => {
+          if (pendingDelete) deleteFile(pendingDelete);
+          setPendingDelete(null);
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
       {/* File list */}
       <div className="w-64 flex-shrink-0 overflow-y-auto space-y-4">
         <p className="text-xs text-zinc-400">
@@ -622,7 +677,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                             size="24"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (node.data) deleteFile(node.data);
+                              if (node.data) setPendingDelete(node.data);
                             }}
                             className="text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                           >
@@ -651,7 +706,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                             size="24"
                             onClick={(e) => {
                               e.stopPropagation();
-                              deleteFile(f);
+                              setPendingDelete(f);
                             }}
                             className="text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                           >
@@ -712,7 +767,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                   <Button
                     variant="secondary"
                     size="24"
-                    onClick={() => deleteFile(selected)}
+                    onClick={() => setPendingDelete(selected)}
                     className="text-red-400 hover:text-red-300"
                   >
                     Delete

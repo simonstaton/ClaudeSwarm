@@ -7,6 +7,7 @@ interface ConfirmDialogProps {
   title: string;
   description: string;
   confirmLabel?: string;
+  cancelLabel?: string;
   variant?: "destructive" | "default";
 }
 
@@ -21,6 +22,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
   variant = "default",
 }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -104,7 +106,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded transition-colors"
           >
-            Cancel
+            {cancelLabel}
           </button>
           <button
             ref={confirmRef}
