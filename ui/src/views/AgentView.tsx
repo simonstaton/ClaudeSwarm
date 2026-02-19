@@ -210,7 +210,7 @@ export function AgentView({ agentId }: { agentId: string }) {
 
         <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
           {/* Agent header */}
-          <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/30">
+          <header className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/30" aria-label="Agent details">
             <div className="flex items-center gap-3">
               {agent ? (
                 <>
@@ -220,11 +220,11 @@ export function AgentView({ agentId }: { agentId: string }) {
               ) : (
                 <AgentHeaderSkeleton />
               )}
-              {isStreaming && <span className="text-xs text-zinc-400">streaming...</span>}
-              {error && <span className="text-xs text-red-400">{error}</span>}
+              {isStreaming && <span className="text-xs text-zinc-400" aria-live="polite" aria-label="Streaming in progress">streaming...</span>}
+              {error && <span className="text-xs text-red-400" role="alert">{error}</span>}
             </div>
             <div className="flex items-center gap-2">
-              {stopError && <span className="text-xs text-red-400 mr-1">{stopError}</span>}
+              {stopError && <span className="text-xs text-red-400 mr-1" role="alert">{stopError}</span>}
               <Button variant="tertiary" size="24" onClick={reconnect}>
                 Reconnect
               </Button>
@@ -239,7 +239,7 @@ export function AgentView({ agentId }: { agentId: string }) {
                 </Button>
               )}
             </div>
-          </div>
+          </header>
 
           {/* Terminal */}
           <AgentTerminal events={events} />

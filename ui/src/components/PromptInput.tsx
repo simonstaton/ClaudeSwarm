@@ -488,6 +488,7 @@ export function PromptInput({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: drop zone for file attachments
     <section
+      aria-label="Message input"
       className={`relative border-t border-zinc-800 bg-zinc-900/50 ${isDragOver ? "ring-2 ring-blue-500/50 ring-inset" : ""}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -502,14 +503,20 @@ export function PromptInput({
 
       {/* Slash command menu */}
       {showSlashMenu && filteredCommands.length > 0 && (
-        <div className="absolute bottom-full left-3 mb-1 w-72 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-20">
-          <div className="px-3 py-1.5 border-b border-zinc-700/50">
+        <div
+          role="listbox"
+          aria-label="Available commands"
+          className="absolute bottom-full left-3 mb-1 w-72 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-20"
+        >
+          <div className="px-3 py-1.5 border-b border-zinc-700/50" aria-hidden="true">
             <span className="text-xs text-zinc-500">Commands</span>
           </div>
           {filteredCommands.map((cmd, i) => (
             <button
               type="button"
               key={cmd.name}
+              role="option"
+              aria-selected={i === slashIndex}
               className={`w-full text-left px-3 py-2 flex items-center gap-3 text-sm transition-colors ${
                 i === slashIndex
                   ? "bg-zinc-700/70 text-zinc-100"
@@ -530,13 +537,17 @@ export function PromptInput({
 
       {/* File reference menu */}
       {showFileMenu && (
-        <div className="absolute bottom-full left-3 mb-1 w-80 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-20">
-          <div className="px-3 py-1.5 border-b border-zinc-700/50 flex items-center justify-between">
+        <div
+          role="listbox"
+          aria-label="Files in workspace"
+          className="absolute bottom-full left-3 mb-1 w-80 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-20"
+        >
+          <div className="px-3 py-1.5 border-b border-zinc-700/50 flex items-center justify-between" aria-hidden="true">
             <span className="text-xs text-zinc-500">Files in workspace</span>
             {fileSearching && <span className="text-xs text-zinc-400 animate-pulse">searching...</span>}
           </div>
           {fileResults.length === 0 ? (
-            <div className="px-3 py-3 text-xs text-zinc-400">
+            <div className="px-3 py-3 text-xs text-zinc-400" aria-live="polite">
               {fileSearching ? "Searching..." : fileFilter ? "No files match" : "Type to search files..."}
             </div>
           ) : (
@@ -545,6 +556,8 @@ export function PromptInput({
                 <button
                   type="button"
                   key={filePath}
+                  role="option"
+                  aria-selected={i === fileIndex}
                   className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-sm transition-colors ${
                     i === fileIndex
                       ? "bg-zinc-700/70 text-zinc-100"
@@ -660,6 +673,7 @@ export function PromptInput({
           disabled={disabled}
           className="shrink-0 p-2 text-zinc-500 hover:text-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded hover:bg-zinc-800"
           title="Attach file or image (or paste / drag & drop)"
+          aria-label="Attach file or image"
         >
           <svg
             aria-hidden="true"
@@ -684,6 +698,8 @@ export function PromptInput({
             onClick={() => setShowCreateConfig((v) => !v)}
             className={`shrink-0 p-2 transition-colors rounded hover:bg-zinc-800 ${showCreateConfig ? "text-cyan-400" : "text-zinc-500 hover:text-zinc-300"}`}
             title="Agent settings (name, model, max turns)"
+            aria-label="Toggle agent settings"
+            aria-expanded={showCreateConfig}
           >
             <GearIcon />
           </button>
@@ -707,6 +723,8 @@ export function PromptInput({
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
+          aria-label={createMode ? "Agent prompt" : "Message to agent"}
+          aria-multiline="true"
           className="flex-1 resize-none bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed font-[var(--font-mono)]"
         />
 

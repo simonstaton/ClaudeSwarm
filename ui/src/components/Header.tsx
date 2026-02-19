@@ -57,58 +57,67 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
               onClick={handlePanicClick}
               disabled={killSwitch.loading}
               title="Emergency kill switch — stops all agents immediately"
+              aria-label="Activate emergency kill switch"
               className="px-3 py-1.5 text-sm font-medium bg-red-900/60 hover:bg-red-800 border border-red-700 hover:border-red-500 text-red-300 hover:text-red-100 rounded transition-colors disabled:opacity-50"
             >
               Kill Switch
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => router.push("/graph")}
-            className={`px-3 py-1.5 text-sm rounded transition-colors ${
-              pathname === "/graph"
-                ? "bg-zinc-700 text-zinc-100"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-            }`}
-          >
-            Graph
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push("/costs")}
-            className={`px-3 py-1.5 text-sm rounded transition-colors ${
-              pathname === "/costs"
-                ? "bg-zinc-700 text-zinc-100"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-            }`}
-          >
-            Costs
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push("/settings")}
-            className={`px-3 py-1.5 text-sm rounded transition-colors ${
-              pathname === "/settings"
-                ? "bg-zinc-700 text-zinc-100"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
-            }`}
-          >
-            Settings
-          </button>
-          <button
-            type="button"
-            onClick={logout}
-            className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
-          >
-            Logout
-          </button>
+          <nav aria-label="Main navigation" className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.push("/graph")}
+              aria-current={pathname === "/graph" ? "page" : undefined}
+              className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                pathname === "/graph"
+                  ? "bg-zinc-700 text-zinc-100"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+              }`}
+            >
+              Graph
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/costs")}
+              aria-current={pathname === "/costs" ? "page" : undefined}
+              className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                pathname === "/costs"
+                  ? "bg-zinc-700 text-zinc-100"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+              }`}
+            >
+              Costs
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/settings")}
+              aria-current={pathname === "/settings" ? "page" : undefined}
+              className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                pathname === "/settings"
+                  ? "bg-zinc-700 text-zinc-100"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+              }`}
+            >
+              Settings
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+            >
+              Logout
+            </button>
+          </nav>
         </div>
       </header>
 
       {/* Full-screen confirmation modal — rendered outside the header so it covers the whole page */}
       {confirming && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="kill-switch-dialog-title"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) setConfirming(false);
@@ -120,11 +129,11 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
           <div className="bg-zinc-900 border border-red-800 rounded-lg shadow-2xl max-w-md w-full mx-4 p-6">
             {/* Header */}
             <div className="flex items-start gap-3 mb-4">
-              <span className="text-red-500 text-2xl leading-none mt-0.5" aria-hidden>
+              <span className="text-red-500 text-2xl leading-none mt-0.5" aria-hidden="true">
                 &#9888;
               </span>
               <div>
-                <h2 className="text-base font-semibold text-red-400">Activate Emergency Kill Switch?</h2>
+                <h2 id="kill-switch-dialog-title" className="text-base font-semibold text-red-400">Activate Emergency Kill Switch?</h2>
                 <p className="text-sm text-zinc-400 mt-1">
                   This action is immediate and cannot be undone without manual re-authentication.
                 </p>
