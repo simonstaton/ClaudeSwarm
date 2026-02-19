@@ -1,4 +1,5 @@
 import { existsSync, type FSWatcher, mkdirSync, readdirSync, rmSync, statSync, watch, writeFileSync } from "node:fs";
+import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { errorMessage } from "./types";
 import { getContextDir } from "./utils/context";
@@ -298,7 +299,7 @@ async function deleteGCSPrefixes(prefixes: string[]): Promise<void> {
  * Clean up a single agent's Claude Code project data when it's destroyed.
  * Removes `~/.claude/projects/-tmp-workspace-{uuid}` and matching todos.
  */
-export function cleanupAgentClaudeData(workspaceDir: string): void {
+export async function cleanupAgentClaudeData(workspaceDir: string): Promise<void> {
   const match = workspaceDir.match(/workspace-([0-9a-f-]+)/);
   if (!match) return;
 
@@ -307,27 +308,28 @@ export function cleanupAgentClaudeData(workspaceDir: string): void {
   const gcsToDelete: string[] = [];
 
   const projectDir = path.join(CLAUDE_HOME, "projects", slug);
-  if (existsSync(projectDir)) {
-    try {
-      rmSync(projectDir, { recursive: true, force: true });
-      cleaned++;
-      gcsToDelete.push(`claude-home/projects/${slug}/`);
-    } catch {}
+  try {
+    await fsPromises.rm(projectDir, { recursive: true, force: true });
+    cleaned++;
+    gcsToDelete.push(`claude-home/projects/${slug}/`);
+  } catch {
+    // Directory may not exist — that's fine
   }
 
   const todosDir = path.join(CLAUDE_HOME, "todos");
-  if (existsSync(todosDir)) {
-    try {
-      for (const entry of readdirSync(todosDir)) {
-        if (entry.includes(match[1])) {
-          try {
-            rmSync(path.join(todosDir, entry), { recursive: true, force: true });
-            cleaned++;
-            gcsToDelete.push(`claude-home/todos/${entry}`);
-          } catch {}
-        }
+  try {
+    const entries = await fsPromises.readdir(todosDir);
+    for (const entry of entries) {
+      if (entry.includes(match[1])) {
+        try {
+          await fsPromises.rm(path.join(todosDir, entry), { recursive: true, force: true });
+          cleaned++;
+          gcsToDelete.push(`claude-home/todos/${entry}`);
+        } catch {}
       }
-    } catch {}
+    }
+  } catch {
+    // Directory may not exist — that's fine
   }
 
   if (cleaned > 0) {

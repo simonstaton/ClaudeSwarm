@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { rename, writeFile } from "node:fs/promises";
+import { access, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Agent, AgentStatus } from "./types";
 import { errorMessage } from "./types";
@@ -167,32 +167,38 @@ export function clearTombstone(): void {
   }
 }
 
-export function removeAgentState(id: string): void {
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function removeAgentState(id: string): Promise<void> {
   const filePath = path.join(STATE_DIR, `${id}.json`);
   try {
-    if (existsSync(filePath)) {
-      unlinkSync(filePath);
-    }
+    await unlink(filePath);
   } catch (err: unknown) {
-    console.warn(`[persistence] Failed to remove state for ${id}:`, errorMessage(err));
-  }
-  // Also remove the .tmp file if it exists (e.g., from a partial save)
-  try {
-    const tmpPath = `${filePath}.tmp`;
-    if (existsSync(tmpPath)) {
-      unlinkSync(tmpPath);
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.warn(`[persistence] Failed to remove state for ${id}:`, errorMessage(err));
     }
-  } catch {}
+  }
+  try {
+    await unlink(`${filePath}.tmp`);
+  } catch {
+    // .tmp may not exist — that's fine
+  }
 
-  // Verify deletion — on GCS FUSE, unlinkSync can silently fail to propagate.
+  // Verify deletion — on GCS FUSE, unlink can silently fail to propagate.
   // If the file still exists after deletion, overwrite it with an empty/tombstone
   // marker that loadAllAgentStates will skip, then retry unlink.
   try {
-    if (existsSync(filePath)) {
+    if (await fileExists(filePath)) {
       console.warn(`[persistence] State file for ${id} still exists after unlink, retrying...`);
-      // Overwrite with empty content first (GCS FUSE handles overwrites more reliably than deletes)
-      writeFileSync(filePath, "", "utf-8");
-      unlinkSync(filePath);
+      await writeFile(filePath, "", "utf-8");
+      await unlink(filePath);
     }
   } catch (err: unknown) {
     console.error(`[persistence] CRITICAL: Could not remove state file for ${id}:`, errorMessage(err));

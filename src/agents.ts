@@ -6,13 +6,11 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
-  rmSync,
   statSync,
   symlinkSync,
-  unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { appendFile, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { appendFile, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { generateServiceToken } from "./auth";
 import {
@@ -676,30 +674,29 @@ export class AgentManager {
     }
     agentProc.listeners.clear();
 
-    cleanupWorktreesForWorkspace(agentProc.agent.workspaceDir);
+    await cleanupWorktreesForWorkspace(agentProc.agent.workspaceDir);
 
     const workingMemoryPath = path.join(SHARED_CONTEXT_DIR, `working-memory-${agentProc.agent.name}.md`);
     try {
-      unlinkSync(workingMemoryPath);
+      await unlink(workingMemoryPath);
     } catch (err: unknown) {
-      // Silently ignore if file doesn't exist
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
         console.warn(`[agents] Failed to remove working memory for ${agentProc.agent.name}:`, errorMessage(err));
       }
     }
 
     try {
-      rmSync(agentProc.agent.workspaceDir, { recursive: true, force: true });
+      await rm(agentProc.agent.workspaceDir, { recursive: true, force: true });
     } catch (err: unknown) {
       console.warn(`[agents] Failed to remove workspace for ${id.slice(0, 8)}:`, errorMessage(err));
     }
-    cleanupAgentClaudeData(agentProc.agent.workspaceDir);
+    await cleanupAgentClaudeData(agentProc.agent.workspaceDir);
     try {
-      unlinkSync(path.join(EVENTS_DIR, `${id}.jsonl`));
+      await unlink(path.join(EVENTS_DIR, `${id}.jsonl`));
     } catch (err: unknown) {
       console.warn(`[agents] Failed to remove event file for ${id.slice(0, 8)}:`, errorMessage(err));
     }
-    removeAgentState(id);
+    await removeAgentState(id);
     this.writeQueues.delete(id);
     this.lifecycleLocks.delete(id);
   }
@@ -752,17 +749,11 @@ export class AgentManager {
       }
       agentProc.listeners.clear();
 
-      // Delete state and event files immediately
-      try {
-        removeAgentState(id);
-      } catch {
-        /* best-effort */
-      }
-      try {
-        unlinkSync(path.join(EVENTS_DIR, `${id}.jsonl`));
-      } catch {
-        /* best-effort */
-      }
+      // Fire-and-forget cleanup — emergencyDestroyAll is synchronous by design
+      // (nuclear kill path) so we don't await, but must use .catch() since
+      // removeAgentState is async and try/catch won't catch promise rejections.
+      removeAgentState(id).catch(() => {});
+      unlink(path.join(EVENTS_DIR, `${id}.jsonl`)).catch(() => {});
     }
 
     this.agents.clear();

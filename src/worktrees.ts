@@ -1,9 +1,25 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import { errorMessage } from "./types";
 
+const execFileAsync = promisify(execFile);
 const PERSISTENT_REPOS = "/persistent/repos";
+
+async function repoExists(): Promise<string[] | null> {
+  try {
+    const entries = await readdir(PERSISTENT_REPOS);
+    return entries.filter((f) => f.endsWith(".git"));
+  } catch {
+    return null;
+  }
+}
+
+async function git(args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync("git", args, { encoding: "utf-8", timeout: 10_000 });
+  return stdout;
+}
 
 /**
  * Clean up git worktrees owned by a specific agent workspace.
@@ -12,47 +28,31 @@ const PERSISTENT_REPOS = "/persistent/repos";
  * both `git worktree remove` them (so the bare repo's worktree list stays clean)
  * and delete the on-disk directory.
  */
-export function cleanupWorktreesForWorkspace(workspaceDir: string): void {
-  if (!existsSync(PERSISTENT_REPOS)) return;
-
-  let bareRepos: string[];
-  try {
-    bareRepos = readdirSync(PERSISTENT_REPOS).filter((f) => f.endsWith(".git"));
-  } catch {
-    return;
-  }
+export async function cleanupWorktreesForWorkspace(workspaceDir: string): Promise<void> {
+  const bareRepos = await repoExists();
+  if (!bareRepos) return;
 
   for (const repo of bareRepos) {
     const repoPath = path.join(PERSISTENT_REPOS, repo);
     try {
-      // Prune stale worktree entries first — removes references to directories
-      // that no longer exist, preventing "already checked out" errors for
-      // future agents that try to use the same branch.
-      execFileSync("git", ["-C", repoPath, "worktree", "prune"], { timeout: 10_000 });
+      await git(["-C", repoPath, "worktree", "prune"]);
 
-      const output = execFileSync("git", ["-C", repoPath, "worktree", "list", "--porcelain"], {
-        encoding: "utf-8",
-        timeout: 10_000,
-      });
+      const output = await git(["-C", repoPath, "worktree", "list", "--porcelain"]);
 
       for (const block of output.split("\n\n")) {
         const wtLine = block.split("\n").find((l) => l.startsWith("worktree "));
         if (!wtLine) continue;
         const wtPath = wtLine.replace("worktree ", "");
-        // Only remove worktrees that live inside this agent's workspace
         if (wtPath.startsWith(workspaceDir)) {
           try {
-            execFileSync("git", ["-C", repoPath, "worktree", "remove", "--force", wtPath], {
-              timeout: 10_000,
-            });
+            await git(["-C", repoPath, "worktree", "remove", "--force", wtPath]);
           } catch {
             // If git worktree remove fails, prune will catch it later
           }
         }
       }
 
-      // Final prune to clean up any entries left after force-remove
-      execFileSync("git", ["-C", repoPath, "worktree", "prune"], { timeout: 10_000 });
+      await git(["-C", repoPath, "worktree", "prune"]);
     } catch {
       // repo may not be a valid git repo — skip
     }
@@ -68,45 +68,32 @@ export function cleanupWorktreesForWorkspace(workspaceDir: string): void {
  * Also detects and removes worktrees pointing at workspace dirs that have no
  * corresponding running agent (orphaned worktrees from crashed/killed agents).
  */
-export function pruneAllWorktrees(activeWorkspaceDirs?: Set<string>): { pruned: number; errors: string[] } {
+export async function pruneAllWorktrees(
+  activeWorkspaceDirs?: Set<string>,
+): Promise<{ pruned: number; errors: string[] }> {
   const result = { pruned: 0, errors: [] as string[] };
-  if (!existsSync(PERSISTENT_REPOS)) return result;
-
-  let bareRepos: string[];
-  try {
-    bareRepos = readdirSync(PERSISTENT_REPOS).filter((f) => f.endsWith(".git"));
-  } catch {
-    return result;
-  }
+  const bareRepos = await repoExists();
+  if (!bareRepos) return result;
 
   for (const repo of bareRepos) {
     const repoPath = path.join(PERSISTENT_REPOS, repo);
     try {
-      // First: git worktree prune removes entries whose directories are gone
-      execFileSync("git", ["-C", repoPath, "worktree", "prune"], { timeout: 10_000 });
+      await git(["-C", repoPath, "worktree", "prune"]);
 
-      // Second: if we have a list of active workspaces, remove worktrees for dead agents
       if (activeWorkspaceDirs) {
-        const output = execFileSync("git", ["-C", repoPath, "worktree", "list", "--porcelain"], {
-          encoding: "utf-8",
-          timeout: 10_000,
-        });
+        const output = await git(["-C", repoPath, "worktree", "list", "--porcelain"]);
 
         for (const block of output.split("\n\n")) {
           const wtLine = block.split("\n").find((l) => l.startsWith("worktree "));
           if (!wtLine) continue;
           const wtPath = wtLine.replace("worktree ", "");
 
-          // Skip the bare repo's own main worktree
           if (wtPath === repoPath) continue;
 
-          // Check if this worktree is inside a /tmp/workspace-* dir
           const wsMatch = wtPath.match(/^(\/tmp\/workspace-[a-f0-9-]+)/);
           if (wsMatch && !activeWorkspaceDirs.has(wsMatch[1])) {
             try {
-              execFileSync("git", ["-C", repoPath, "worktree", "remove", "--force", wtPath], {
-                timeout: 10_000,
-              });
+              await git(["-C", repoPath, "worktree", "remove", "--force", wtPath]);
               result.pruned++;
               console.log(`[worktree] Pruned orphaned worktree: ${wtPath} (repo: ${repo})`);
             } catch (err: unknown) {
@@ -116,8 +103,7 @@ export function pruneAllWorktrees(activeWorkspaceDirs?: Set<string>): { pruned: 
         }
       }
 
-      // Final prune pass to clean up any lock files or metadata
-      execFileSync("git", ["-C", repoPath, "worktree", "prune"], { timeout: 10_000 });
+      await git(["-C", repoPath, "worktree", "prune"]);
     } catch (err: unknown) {
       result.errors.push(`${repo}: ${errorMessage(err)}`);
     }
@@ -133,25 +119,27 @@ export function pruneAllWorktrees(activeWorkspaceDirs?: Set<string>): { pruned: 
  * 3. On agent destroy (targeted cleanup)
  */
 export function startWorktreeGC(getActiveWorkspaceDirs: () => Set<string>): ReturnType<typeof setInterval> {
-  // Run immediately on start
-  const dirs = getActiveWorkspaceDirs();
-  const initial = pruneAllWorktrees(dirs);
-  if (initial.pruned > 0) {
-    console.log(`[worktree] Startup GC: pruned ${initial.pruned} stale worktrees`);
-  }
+  pruneAllWorktrees(getActiveWorkspaceDirs())
+    .then((initial) => {
+      if (initial.pruned > 0) {
+        console.log(`[worktree] Startup GC: pruned ${initial.pruned} stale worktrees`);
+      }
+    })
+    .catch((err) => {
+      console.error("[worktree] Startup GC error:", err);
+    });
 
-  // Then every 10 minutes
   return setInterval(
     () => {
-      try {
-        const activeDirs = getActiveWorkspaceDirs();
-        const result = pruneAllWorktrees(activeDirs);
-        if (result.pruned > 0) {
-          console.log(`[worktree] Periodic GC: pruned ${result.pruned} stale worktrees`);
-        }
-      } catch (err) {
-        console.error("[worktree] GC error:", err);
-      }
+      pruneAllWorktrees(getActiveWorkspaceDirs())
+        .then((result) => {
+          if (result.pruned > 0) {
+            console.log(`[worktree] Periodic GC: pruned ${result.pruned} stale worktrees`);
+          }
+        })
+        .catch((err) => {
+          console.error("[worktree] GC error:", err);
+        });
     },
     10 * 60 * 1000,
   );

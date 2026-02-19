@@ -67,6 +67,8 @@ describe("persistence", () => {
 
       return {
         ...actual,
+        access: (p: string, mode?: number) => actual.access(patchPath(p), mode),
+        unlink: (p: string) => actual.unlink(patchPath(p)),
         writeFile: (p: string, data: string, enc?: BufferEncoding) => actual.writeFile(patchPath(p), data, enc),
         rename: (from: string, to: string) => actual.rename(patchPath(from), patchPath(to)),
       };
@@ -338,23 +340,23 @@ describe("persistence", () => {
       writeFileSync(filePath, JSON.stringify(agent), "utf-8");
       expect(existsSync(filePath)).toBe(true);
 
-      persistence.removeAgentState("remove-me");
+      await persistence.removeAgentState("remove-me");
 
       expect(existsSync(filePath)).toBe(false);
     });
 
-    it("does nothing if state file does not exist", () => {
-      expect(() => persistence.removeAgentState("nonexistent-agent")).not.toThrow();
+    it("does nothing if state file does not exist", async () => {
+      await expect(persistence.removeAgentState("nonexistent-agent")).resolves.not.toThrow();
     });
 
-    it("also removes .tmp file if it exists", () => {
+    it("also removes .tmp file if it exists", async () => {
       const agent = makeAgent("remove-with-tmp");
       const filePath = path.join(stateDir, "remove-with-tmp.json");
       const tmpPath = `${filePath}.tmp`;
       writeFileSync(filePath, JSON.stringify(agent), "utf-8");
       writeFileSync(tmpPath, "{}", "utf-8");
 
-      persistence.removeAgentState("remove-with-tmp");
+      await persistence.removeAgentState("remove-with-tmp");
 
       expect(existsSync(filePath)).toBe(false);
       expect(existsSync(tmpPath)).toBe(false);
@@ -368,7 +370,7 @@ describe("persistence", () => {
       writeFileSync(keepPath, JSON.stringify(agent1), "utf-8");
       writeFileSync(deletePath, JSON.stringify(agent2), "utf-8");
 
-      persistence.removeAgentState("delete-agent");
+      await persistence.removeAgentState("delete-agent");
 
       expect(existsSync(keepPath)).toBe(true);
       expect(existsSync(deletePath)).toBe(false);
