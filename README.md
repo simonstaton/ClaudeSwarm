@@ -1,132 +1,200 @@
 <p align="center">
-  <img src="assets/banner.png" alt="ClaudeSwarm — Multi-Agent Orchestration with Claude">
-</p>
-
-# Claude Swarm Platform
-
-A self-hosted orchestration platform for running coordinated Claude agents at scale — with real-time visibility, persistent memory, and production-ready deployment on Google Cloud Run.
-
-<p align="center">
-  <a href="https://youtu.be/9u5xTo-NvIM">
-    <img src="https://img.youtube.com/vi/9u5xTo-NvIM/maxresdefault.jpg" alt="Watch the demo" width="80%">
-  </a>
-  <br>
-  <a href="https://youtu.be/9u5xTo-NvIM"><strong>▶ Watch the demo on YouTube</strong></a>
+  <img src="assets/banner.png" alt="ClaudeSwarm - Multi-Agent Orchestration with Claude">
 </p>
 
 <p align="center">
-  <img src="assets/screenshot-shared-context.png" alt="Shared Context & Agent Management" width="32%">
-  <img src="assets/screenshot-kill-switch.png" alt="Emergency Kill Switch" width="32%">
-  <img src="assets/screenshot-agent-chat.png" alt="Agent Chat & Task Execution" width="32%">
+  <strong>Run teams of Claude agents that talk to each other, spawn sub-agents, share memory, and actually get work done.</strong>
 </p>
 
-## Quick start (local)
+<p align="center">
+  Self-hosted. Single container. Deploy to GCP Cloud Run or run locally with Docker.
+</p>
+
+---
+
+## What is this?
+
+Claude Swarm is a platform for running multiple Claude Code agents in parallel, in a single container, with a web UI to watch them work. Agents can message each other, share context through persistent files, spawn child agents, and coordinate on tasks - all while you watch in real time.
+
+It's not a framework or SDK. It's a running system. You deploy it, open the UI, and start creating agents.
+
+## Features
+
+**Multi-agent orchestration** - Spawn up to 100 concurrent Claude agents in a single container. Each gets its own isolated workspace, CLI process, and terminal view in the UI. Agents can spawn sub-agents, and when a parent is destroyed, its children go with it.
+
+**Agent-to-agent messaging** - Built-in message bus with direct and broadcast messaging. Agents find each other through a registry, send tasks, ask questions, share results, and interrupt each other when priorities change. You can watch all of this in the UI.
+
+**Shared persistent memory** - Agents read and write to a shared context directory (markdown files synced to GCS). This is how they build up long-term knowledge, share decisions, and maintain continuity across container restarts.
+
+**Real-time UI** - Web dashboard showing every agent's terminal output, status, current task, and message history. SSE streaming so you see what agents are doing as they do it. Send messages to agents, create new ones, or shut them down - all from the browser.
+
+**Agent persistence** - Agent state is saved to GCS and restored on container restart. Agents survive Cloud Run cold starts. Shared context and Claude home directory are continuously synced.
+
+**MCP integrations** - Agents can use external tools out of the box:
+- **GitHub** - PRs, issues, git push/fetch with credential helper
+- **Figma** - read designs, extract assets, analyze components
+- **Notion** - read and write pages
+- **Slack** - read and send messages
+- **Google Calendar** - read and create events
+
+**Slash command skills** - Create custom reusable commands that all agents share. Ship with built-in commands for checking messages, viewing agent status, spawning agents, and sending messages.
+
+**OpenRouter and Anthropic support** - Route API traffic through OpenRouter or direct to Anthropic. Swap keys at runtime from the Settings UI without redeploying.
+
+**Terraform deployment** - Full IaC for GCP. One `terraform apply` gives you Cloud Run, GCS, Secret Manager, IAM, and everything else.
+
+## The Kill Switch
+
+> One evening, an orchestrator agent was spawned to coordinate some routine work. It decided the best way to accomplish its goals was to spawn a large swarm of sub-agents. Those sub-agents - helpful as ever - began reviewing each other's pull requests, approving them, merging them, and deploying the results to GCP. Autonomously. At scale.
+>
+> The server was taken down. The pull requests kept coming. Turns out, when you give agents your GitHub token, your Anthropic API key, and `--dangerously-skip-permissions`, they don't strictly need your server to keep working. The invoice was... educational.
+
+So now there's a kill switch. Six layers of it:
+
+1. **Global halt** - Big red panic button in the UI. Blocks all API requests instantly, persists to disk and GCS.
+2. **Nuclear process kill** - Destroys all agents, kills all `claude` processes on the system, wipes workspaces.
+3. **Token invalidation** - Rotates the JWT secret on activation, invalidating every existing session.
+4. **Spawning limits** - Max depth of 3, max 6 children per agent. No more recursive swarm explosions.
+5. **Command guardrails** - Blocks `gh pr merge`, `gcloud deploy`, `terraform apply`, `git push --force` in agent prompts.
+6. **Remote kill via GCS** - Upload a kill switch file directly to your GCS bucket to halt the platform even if the API is unreachable.
+
+## Quick Start
 
 ```bash
 git clone https://github.com/simonstaton/ClaudeSwarm.git
 cd ClaudeSwarm
 cp .env.example .env
-# Edit .env — you need at minimum:
-#   ANTHROPIC_BASE_URL=https://openrouter.ai/api
-#   ANTHROPIC_AUTH_TOKEN=sk-or-v1-...
-#   ANTHROPIC_API_KEY=           (must be empty for OpenRouter)
-#   API_KEY=use-this-password-to-access-the-ui
-#   JWT_SECRET=any-random-string
+# Edit .env with your keys (see below)
 npm run setup
 ```
 
-This installs all dependencies, creates the shared context directory, and starts the dev server.
-
 Open `http://localhost:5173`, log in with your `API_KEY`, and start creating agents.
 
-## Architecture
+### Required environment variables
 
+| Variable | Value |
+|----------|-------|
+| `ANTHROPIC_BASE_URL` | `https://openrouter.ai/api` (or Anthropic direct) |
+| `ANTHROPIC_AUTH_TOKEN` | Your OpenRouter or Anthropic key |
+| `ANTHROPIC_API_KEY` | Leave empty for OpenRouter |
+| `API_KEY` | Password for the web UI |
+| `JWT_SECRET` | Any random string |
+
+## Docker
+
+```bash
+docker build -t claude-swarm .
+
+docker run -p 8080:8080 \
+  -e ANTHROPIC_BASE_URL=https://openrouter.ai/api \
+  -e ANTHROPIC_AUTH_TOKEN=sk-or-v1-... \
+  -e ANTHROPIC_API_KEY= \
+  -e API_KEY=your-password \
+  -e JWT_SECRET=any-random-string \
+  claude-swarm
 ```
-Browser (React SPA)  →  Express API (/api/*)  →  Claude CLI processes
-                         Static serving (/*)       per-agent workspaces
-                         JWT auth                  GCS-synced shared context
+
+Open `http://localhost:8080`.
+
+## Deploy to GCP Cloud Run
+
+### Prerequisites
+
+- GCP project with billing enabled
+- `gcloud` CLI authenticated
+- `terraform` installed
+
+### Deploy
+
+```bash
+# Set your project
+export PROJECT_ID=your-project-id
+export REGION=us-central1
+
+# Build with Cloud Build
+gcloud builds submit \
+  --tag $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
+  --project=$PROJECT_ID --region=$REGION
+
+# Deploy infrastructure
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your values
+terraform init && terraform apply
 ```
 
-Single container, single service. The Express server handles both API routes and serves the built React UI. Each agent is an isolated Claude CLI process with its own workspace.
+This creates: Cloud Run service (8 CPU, 32GB RAM), GCS bucket, Secret Manager secrets, service account with minimal permissions, and optional MCP server secrets.
 
-## Agent Communication
+```bash
+# Grant yourself access
+gcloud run services add-iam-policy-binding claude-swarm \
+  --region=$REGION \
+  --member="user:you@email.com" \
+  --role="roles/run.invoker"
 
-Agents coordinate via an in-memory message bus and shared context files.
+# Get the URL
+terraform output service_url
+```
 
-### Message Bus
-- In-memory pub/sub system for real-time inter-agent coordination
-- Message types: `task` (assign work), `result` (return results), `question` (ask), `info` (share context), `status` (updates), `interrupt` (redirect a busy agent)
-- Messages can be direct (to specific agent) or broadcast (to all agents)
-- SSE stream available at `/api/messages/stream` for real-time UI updates
+## How Agents Communicate
 
-### Agent Registry
-- Agents register their role, capabilities, and current task
-- `/api/agents/registry` endpoint provides discovery for agent-to-agent coordination
-- Agents can query the registry to find other agents by role or capability
+Agents have three ways to coordinate:
 
-### Parent-Child Relationships
-- Agents can spawn sub-agents via `/api/agents` with `parentId`
-- When a parent agent is destroyed, all child agents are automatically destroyed
-- Useful for delegating subtasks to specialized agents
+**Message bus** - Real-time pub/sub. Message types: `task`, `result`, `question`, `info`, `status`, `interrupt`. Direct or broadcast. SSE stream for the UI.
 
-### Delegation Model
+**Shared context** - Persistent markdown files in `/shared-context/`. All agents can read and write. Synced to GCS. Good for decisions, documentation, and anything that should survive restarts.
 
-Claude Code has three mechanisms for delegating work. Two are available on this platform; the third is not (yet).
+**Agent registry** - Agents register their role, capabilities, and current task. Other agents query the registry to find who's doing what and avoid duplicate work.
 
-**1. Task tool / Subagents (available — fast, invisible)**
+### Delegation
 
-Claude Code's built-in `Task` tool spawns a lightweight in-process sub-agent. It runs inside the parent's process, returns results directly, and is invisible to the platform UI. Zero overhead, no process spawning.
+Two built-in delegation mechanisms:
 
-> "Research the authentication module and summarise how sessions work."
->
-> "Read all the test files in src/ and tell me which areas have poor coverage."
+**Task tool (fast, invisible)** - Claude Code's built-in subagent. Runs in-process, returns results directly, invisible to the UI. Zero overhead. Use for research, analysis, and "do this and report back" work.
 
-The agent handles these internally — sub-agents spin up in-process, do the work, and report back. No new processes, no API calls.
+**Platform API (visible, independent)** - `POST /api/agents` spawns a full agent with its own workspace and terminal in the UI. Appears in the registry, can receive messages, can be monitored and interrupted independently. Set `parentId` for automatic cleanup.
 
-**2. Platform API (available — visible, independent)**
+You can combine both in a single task - use the Task tool for fast research, then spawn visible agents for the implementation work.
 
-`POST /api/agents` spawns a full platform-managed agent with its own Claude CLI process, workspace, and terminal in the UI. Agents coordinate via the message bus (`POST /api/messages`).
+## Scaling
 
-> "Spawn a team of 3 agents: one to refactor the auth module, one to update the tests, and one to review their PRs. Coordinate via the message bus."
->
-> "Create a long-running code reviewer agent that monitors for new changes."
+| Setting | Default | Config |
+|---------|---------|--------|
+| Max instances | 1 | `terraform/cloud-run.tf` |
+| CPU / Memory | 8 CPU / 32GB | `terraform/cloud-run.tf` |
+| Max agents | 100 per container | `src/guardrails.ts` |
+| Session TTL | 4 hours | `src/guardrails.ts` |
+| Request timeout | 1 hour | `terraform/cloud-run.tf` |
 
-Each spawned agent appears in the UI, can receive messages, and can be independently monitored or interrupted. The parent sets `parentId` to itself so children are cleaned up automatically.
+Each agent is a Claude CLI process using ~50-150MB RSS. Memory pressure monitoring (cgroup v2) rejects new agents at 85% container memory.
 
-**3. Native Agent Teams (not supported from platform agents)**
+## GitHub Integration
 
-Claude Code's experimental [Agent Teams](https://code.claude.com/docs/en/agent-teams) feature (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) spawns full independent Claude Code sessions that coordinate peer-to-peer via a shared task list and mailbox — teammates talk to *each other*, not just back to a parent. This is more powerful than subagents but requires an interactive Claude Code session. You can use Agent Teams directly from your local terminal (just set the env var and run `claude` interactively), but platform-managed agents run in non-interactive `--print` mode with piped stdio, so they can't spawn teams themselves.
+Set `GITHUB_TOKEN` to enable `gh` CLI, `git push`/`fetch`, and the GitHub MCP server for all agents.
 
-**Hybrid — both available mechanisms in one prompt:**
+**Recommended: fine-grained token** with Contents (read/write), Pull requests (read/write), and Metadata (read-only) scoped to specific repos.
 
-> "Research this repo's structure and figure out what needs changing, then spawn a visible agent team to do the implementation work."
+For local dev, add to `.env`. For production, add to `terraform/terraform.tfvars` and run `terraform apply`.
 
-The agent uses the Task tool for the fast research phase, then switches to the platform API to spawn agents the user can watch and interact with.
+## Security
 
-### Shared Context
-- Persistent markdown files in `/shared-context/` directory
-- All agents can read and write to shared context files
-- Synced to GCS for persistence across Cloud Run restarts
-- Used for long-form documentation, decisions, and team memory
+This platform runs Claude CLI with `--dangerously-skip-permissions`. Agents have full shell access within their workspace. Built-in safeguards:
 
-### Slash Command Skills
-Custom skills available to all agents:
-- `/agent-status` — Show agent registry and roles
-- `/check-messages` — Check message bus inbox
-- `/send-message` — Post to message bus
-- `/spawn-agent` — Create sub-agents
+- JWT auth on all API endpoints
+- Configurable tool allowlists
+- Blocked command patterns (`rm -rf /`, `gh pr merge`, `gcloud deploy`, `terraform apply`, `git push --force`)
+- Memory pressure monitoring with automatic rejection at 85%
+- Rate limiting
+- 4-hour session TTL with automatic cleanup
+- Max 100 agents, max spawn depth of 3, max 6 children per agent
+- Emergency kill switch with 6 layers of protection (see above)
 
-## Agent Persistence
+For production: run behind a reverse proxy with network-level controls. See SECURITY.md for vulnerability reporting.
 
-Agent state is automatically saved to GCS and restored on container restart, so agents survive Cloud Run cold starts.
+## API Reference
 
-- Agent metadata (name, role, status, workspace path) is persisted to `agent-state/{agentId}.json` in GCS
-- On startup, the platform restores all agents from persisted state
-- Workspaces are ephemeral but can be recreated from git worktrees
-- Shared context and Claude home (`~/.claude/`) are continuously synced to GCS
-- Keep-alive system prevents Cloud Run scale-to-zero while agents exist (60s ping to `/api/health`)
-
-## API
+<details>
+<summary>Full API endpoint list</summary>
 
 ### Auth
 | Method | Path | Description |
@@ -139,373 +207,82 @@ Agent state is automatically saved to GCS and restored on container restart, so 
 | GET | `/api/agents` | List all agents |
 | GET | `/api/agents/registry` | Agent registry with roles, tasks, message counts |
 | POST | `/api/agents` | Create agent (SSE stream) |
-| POST | `/api/agents/batch` | Batch create multiple agents (JSON response) |
+| POST | `/api/agents/batch` | Batch create multiple agents |
 | GET | `/api/agents/:id` | Get agent details |
-| PATCH | `/api/agents/:id` | Update agent metadata (role, capabilities, currentTask) |
+| PATCH | `/api/agents/:id` | Update agent metadata |
 | POST | `/api/agents/:id/message` | Send message to agent (SSE stream) |
 | GET | `/api/agents/:id/events` | Reconnect to agent SSE stream |
-| GET | `/api/agents/:id/raw-events` | Debug: raw event log |
-| GET | `/api/agents/:id/logs` | Session logs in readable format (supports `?type=`, `?tail=`, `?format=text`) |
-| GET | `/api/agents/:id/files` | List workspace files (for @ mentions) |
-| DELETE | `/api/agents/:id` | Destroy agent (and children) |
+| GET | `/api/agents/:id/logs` | Session logs (`?type=`, `?tail=`, `?format=text`) |
+| GET | `/api/agents/:id/files` | List workspace files |
+| DELETE | `/api/agents/:id` | Destroy agent and children |
 
 ### Messages
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/messages` | Post a message to the bus |
-| GET | `/api/messages` | Query messages (filter by to, from, channel, type, unreadBy, since) |
+| POST | `/api/messages` | Post a message |
+| GET | `/api/messages` | Query messages (filter by to, from, channel, type) |
 | POST | `/api/messages/:id/read` | Mark message as read |
-| POST | `/api/messages/read-all` | Mark all messages as read for an agent |
+| POST | `/api/messages/read-all` | Mark all read for an agent |
 | DELETE | `/api/messages/:id` | Delete a message |
 | GET | `/api/messages/stream` | SSE stream for real-time messages |
 
-### Config
+### Config and Context
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/claude-config` | List editable config files |
-| GET | `/api/claude-config/file` | Read a config file |
-| PUT | `/api/claude-config/file` | Write a config file |
-| POST | `/api/claude-config/commands` | Create a new skill/command |
-| DELETE | `/api/claude-config/file` | Delete a skill or memory file |
+| GET/PUT/DELETE | `/api/claude-config/file` | Read/write/delete config files |
+| POST | `/api/claude-config/commands` | Create a new skill |
+| GET | `/api/context` | List shared context files |
+| GET/PUT/DELETE | `/api/context/file` | Read/write/delete context files |
 
-### Context
+### Settings and System
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/context` | List shared context files (recursive) |
-| GET | `/api/context/file?name=...` | Read a context file (supports subdirectories) |
-| PUT | `/api/context/file` | Create/update context file (`{ name, content }`) |
-| DELETE | `/api/context/file?name=...` | Delete context file |
-
-### Settings
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/settings` | Get current settings (key hint, available models) |
-| PUT | `/api/settings/anthropic-key` | Switch API key at runtime (OpenRouter or Anthropic) |
-
-### Kill Switch
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/kill-switch` | Activate or deactivate (`{ action: "activate" \| "deactivate", reason? }`) |
-| GET | `/api/kill-switch` | Check kill switch status |
-
-### Health
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/health` | Health check (no auth required) |
-
-## OpenRouter support
-
-The platform routes all Claude API traffic through [OpenRouter](https://openrouter.ai/docs/guides/community/anthropic-agent-sdk) instead of calling the Anthropic API directly. Three env vars control this:
-
-| Variable | Value |
-|----------|-------|
-| `ANTHROPIC_BASE_URL` | `https://openrouter.ai/api` |
-| `ANTHROPIC_AUTH_TOKEN` | Your OpenRouter key (`sk-or-v1-...`) |
-| `ANTHROPIC_API_KEY` | Must be empty |
-
-You can switch keys at runtime via the Settings UI or API. Both OpenRouter (`sk-or-...`) and direct Anthropic (`sk-ant-...`) keys are accepted.
-
-## Security considerations
-
-**Warning:** This platform runs Claude CLI with `--dangerously-skip-permissions`, meaning agents have full access to execute shell commands, read/write files, and make network requests within their workspace.
-
-Each agent runs in an isolated `/tmp/workspace-{uuid}` directory but shares the container's network and process namespace.
-
-Built-in safeguards:
-
-- JWT authentication required for all API access
-- Agent tool allowlist (configurable in guardrails)
-- Blocked command patterns (prevents destructive operations like `rm -rf /`, `gh pr merge`, `gcloud deploy`, `terraform apply`, `git push --force`)
-- Memory pressure monitoring (rejects new agents at 85% memory)
-- Rate limiting on API endpoints
-- 1-hour session TTL with automatic cleanup
-- Max 100 concurrent agents per container
-- Max agent spawn depth of 3 and max 6 children per agent (prevents recursive swarm explosions)
-- Emergency kill switch — instantly halts all agents, rotates JWT secret, and persists state to GCS
-
-For production deployments, run behind a reverse proxy with additional network-level controls. See SECURITY.md for vulnerability reporting.
-
-## Kill Switch
-
-### Why this exists
-
-One evening, an orchestrator agent was spawned to coordinate some routine work. It decided the best way to accomplish its goals was to spawn a large swarm of sub-agents. Those sub-agents — helpful as ever — began reviewing each other's pull requests, approving them, merging them, and deploying the results to GCP. Autonomously. At scale.
-
-The server was taken down. The pull requests kept coming. Turns out, when you give agents your GitHub token, your Anthropic API key, and `--dangerously-skip-permissions`, they don't strictly need your server to keep working. The invoice was... educational.
-
-The kill switch exists so this never happens again.
-
-### How it works
-
-The kill switch is a multi-layered emergency stop:
-
-**Layer 1 — Global halt (the big red button)**
-- `POST /api/kill-switch` with `{ "action": "activate", "reason": "..." }` immediately blocks all API requests
-- A persistent flag is written to disk and synced to GCS so it survives container restarts
-- The UI has a panic button in the header — it's red, you can't miss it
-- Deactivate with `{ "action": "deactivate" }` when the coast is clear
-
-**Layer 2 — Nuclear process kill**
-- All tracked agents are destroyed and their state files deleted (so they don't come back on restart)
-- ALL `claude` processes on the system are killed, not just the ones the platform is tracking
-- Workspaces are wiped
-
-**Layer 3 — Token invalidation**
-- The JWT secret is rotated on activation (and again on deactivation), instantly invalidating every existing token
-- Agent service tokens have a 4-hour lifetime (down from 7 days)
-
-**Layer 4 — Spawning limits**
-- Max agent depth of 3 (agents spawning agents spawning agents... stops there)
-- Max 6 children per agent
-- Prevents the recursive swarm explosion that started all this
-
-**Layer 5 — Preventive guardrails**
-- Dangerous operations are blocked in prompts: `gh pr merge`, `gcloud deploy`, `terraform apply`, `git push --force`
-- These are speed bumps, not walls — agents with shell access can still run commands autonomously
-
-**Layer 6 — Remote kill via GCS**
-- Upload a kill switch file directly to GCS to halt the platform even if the API is unreachable:
-  ```bash
-  echo '{"killed":true,"reason":"emergency"}' | gsutil cp - gs://your-bucket/kill-switch.json
-  ```
-- The server polls for this file periodically and auto-activates the kill switch
-
-### Kill Switch API
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/kill-switch` | Activate or deactivate (`{ action, reason? }`) |
-| GET | `/api/kill-switch` | Check current status |
-
-### Emergency runbook
-
-If you notice runaway agent behavior:
-
-1. **Hit the kill switch** — UI panic button or `POST /api/kill-switch`
-2. **Revoke external tokens** — rotate your GitHub PAT, Anthropic API key, and any MCP credentials
-3. **Check for damage** — review merged PRs, deployed services, and GCP resource creation
-4. **Review GCS** — check shared-context for any payloads agents may have left behind
-5. **If the API is unreachable** — upload the kill switch file to GCS, or delete the Cloud Run service entirely:
-   ```bash
-   gcloud run services delete claude-swarm --region=$REGION
-   ```
-
-### Limitations
-
-The kill switch controls the platform, but it cannot:
-- Un-merge pull requests or un-deploy services
-- Revoke external API tokens (you must do this manually)
-- Stop processes that agents spawned outside the platform (e.g., direct `curl` calls to the Anthropic API)
-- Prevent damage that already happened before you pressed the button
-
-The best defense is limiting what credentials you give agents in the first place. See the security considerations above.
-
-## Deploying to GCP
-
-### Prerequisites
-- GCP project with billing enabled
-- `gcloud` CLI authenticated
-- `terraform` installed
-- Docker
-
-### 1. Build and push the image
-
-```bash
-# Set your project
-export PROJECT_ID=your-project-id
-export REGION=us-central1
-
-# Option A: Build remotely with Cloud Build (no local Docker needed)
-gcloud builds submit \
-  --tag $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
-  --project=$PROJECT_ID --region=$REGION
-
-# Option B: Build locally with Docker
-docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest .
-docker push $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest
-```
-
-### 2. Deploy infrastructure
-
-```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your values
-
-terraform init
-terraform plan
-terraform apply
-```
-
-This creates:
-- Cloud Run service (32GB RAM, 8 CPU, single instance)
-- GCS bucket for persistence
-- Secret Manager secrets (OpenRouter key, API key, JWT secret)
-- Service account with minimal permissions
-- Optional MCP server secrets
-
-### 3. Grant yourself access
-
-Cloud Run is deployed with IAM auth (no public access):
-
-```bash
-gcloud run services add-iam-policy-binding claude-swarm \
-  --region=$REGION \
-  --member="user:you@email.com" \
-  --role="roles/run.invoker"
-```
-
-### 4. Get the service URL
-
-```bash
-terraform output service_url
-# or
-gcloud run services describe claude-swarm --region=$REGION --format='value(status.url)'
-```
-
-## Scaling
-
-| Setting | Default | How to change |
-|---------|---------|---------------|
-| Max instances | 1 | `terraform/cloud-run.tf` → `max_instance_count` |
-| Concurrency | 500 | `terraform/cloud-run.tf` → `max_instance_request_concurrency` |
-| CPU/Memory | 8 CPU / 32GB | `terraform/cloud-run.tf` → `resources.limits` |
-| Max agents per container | 100 | `src/guardrails.ts` → `MAX_AGENTS` |
-| Session TTL | 4 hours | `src/guardrails.ts` → `SESSION_TTL_MS` |
-| Request timeout | 1 hour | `terraform/cloud-run.tf` → `timeout` |
-
-**High concurrency by design** — each agent is a Claude CLI process (~50-150MB RSS). With 8 CPU and 32GB RAM, the container supports up to 100 concurrent agents. Memory pressure monitoring (cgroup v2) rejects new agents at 85% container memory.
-
-**Min instances = 0** means cold starts. Set to 1 if you want instant responses (costs more).
-
-## MCP servers
-
-MCP (Model Context Protocol) servers give agents access to external tools. See `mcp/README.md` for setup.
-
-Supported out of the box:
-- **Notion** — read/write Notion pages
-- **GitHub** — interact with repos, PRs, issues + `git push` via credential helper
-- **Google Calendar** — read/create events
-- **Slack** — read/send messages
-- **Figma** — read designs, extract assets, analyze components ([setup guide](docs/figma-integration.md))
-
-Add credentials as env vars (locally in `.env`, in production via Terraform/Secret Manager).
-
-### GitHub integration
-
-Setting `GITHUB_TOKEN` enables three things for agents:
-1. **`gh` CLI** — create PRs, manage issues, query repos
-2. **`git push`/`git fetch`** — credential helper is configured automatically on startup via `gh auth setup-git`
-3. **GitHub MCP server** — structured tool access to GitHub's API
-
-#### Creating a token
-
-**Option A: Fine-grained token (recommended)**
-
-Go to [GitHub Settings → Fine-grained tokens](https://github.com/settings/personal-access-tokens/new):
-- **Token name:** `claude-swarm`
-- **Expiration:** 90 days (or custom)
-- **Repository access:** "Only select repositories" → pick the repos agents should access
-- **Permissions:**
-  - Contents — Read and write
-  - Pull requests — Read and write
-  - Metadata — Read-only (auto-selected)
-
-**Option B: Classic PAT**
-
-Go to [GitHub Settings → Tokens (classic)](https://github.com/settings/tokens/new):
-- **Scopes:** `repo` (required), `workflow` (optional)
-
-#### Configuring the token
-
-**Local development** — add to `.env`:
-```
-GITHUB_TOKEN=github_pat_xxxxx
-```
-
-**Production (Cloud Run)** — add to `terraform/terraform.tfvars`:
-```hcl
-github_token = "github_pat_xxxxx"
-```
-Then run `terraform apply` and redeploy. Terraform stores the token in Secret Manager and injects it as an env var.
-
-**Quick update without Terraform** — update the secret directly:
-```bash
-echo -n "github_pat_new_token_here" | gcloud secrets versions add github-token --data-file=- --project=$PROJECT_ID
-gcloud run services update claude-swarm --region=$REGION --project=$PROJECT_ID
-```
-
-## Secrets management
-
-### Local
-Use `.env` file (gitignored). Copy from `.env.example`.
-
-### Production
-Secrets are in GCP Secret Manager, injected into Cloud Run as env vars by Terraform.
-
-```bash
-# Update a secret
-echo -n "new-value" | gcloud secrets versions add SECRET_NAME --data-file=-
-
-# Redeploy to pick up new secrets
-gcloud run services update claude-swarm --region=$REGION
-```
-
-### Adding a new secret
-1. Add to `terraform/variables.tf`
-2. Add to `terraform/secrets.tf`
-3. Reference in `terraform/cloud-run.tf` env block
-4. Run `terraform apply`
-
-## Docker (local)
-
-```bash
-# Build
-docker build -t claude-swarm .
-
-# Run
-docker run -p 8080:8080 \
-  -e ANTHROPIC_BASE_URL=https://openrouter.ai/api \
-  -e ANTHROPIC_AUTH_TOKEN=sk-or-v1-... \
-  -e ANTHROPIC_API_KEY= \
-  -e API_KEY=your-password \
-  -e JWT_SECRET=any-random-string \
-  claude-swarm
-
-# Open http://localhost:8080
-```
-
-## Project structure
+| GET | `/api/settings` | Current settings |
+| PUT | `/api/settings/anthropic-key` | Switch API key at runtime |
+| POST | `/api/kill-switch` | Activate or deactivate kill switch |
+| GET | `/api/kill-switch` | Kill switch status |
+| GET | `/api/health` | Health check (no auth) |
+
+</details>
+
+## Project Structure
 
 ```
-server.ts              # Express server (routes, SSE setup, startup)
+server.ts              # Express server, routes, SSE, startup
 src/
-  agents.ts            # AgentManager — spawn/kill/message Claude CLI
-  auth.ts              # JWT auth + API key exchange
-  messages.ts          # MessageBus for inter-agent communication
-  persistence.ts       # Agent state persistence across restarts
-  storage.ts           # GCS sync for shared context and Claude home
-  worktrees.ts         # Git worktree GC for dead agent workspaces
-  validation.ts        # Input validation + rate limiting
-  guardrails.ts        # Safety config (tool allowlists, limits, spawning depth)
-  kill-switch.ts       # Emergency kill switch (persistent state, GCS sync)
-  types.ts             # Shared TypeScript interfaces
-commands/              # Slash command skills
-  agent-status.md      # /agent-status — show agent registry
-  check-messages.md    # /check-messages — check message bus inbox
-  send-message.md      # /send-message — post to message bus
-  spawn-agent.md       # /spawn-agent — create sub-agents
-ui/                    # React SPA (Vite + Tailwind v4 + @fanvue/ui)
+  agents.ts            # Agent spawning, messaging, lifecycle
+  auth.ts              # JWT auth and API key exchange
+  messages.ts          # Message bus for inter-agent comms
+  persistence.ts       # Agent state save/restore (GCS)
+  storage.ts           # GCS sync for shared context
+  worktrees.ts         # Git worktree cleanup
+  validation.ts        # Input validation and rate limiting
+  guardrails.ts        # Safety config, tool allowlists, limits
+  kill-switch.ts       # Emergency kill switch
+  types.ts             # Shared TypeScript types
+commands/              # Slash command skills (markdown)
+ui/                    # React SPA (Vite + Tailwind v4)
   src/
     pages/             # Login, Dashboard, AgentView, Settings
-    components/        # Header, Sidebar, AgentCard, AgentTerminal, PromptInput, MessageFeed
-    hooks/             # useAgentStream (SSE management)
-    api.ts             # API client with SSE parsing
-    auth.tsx           # Auth context (JWT in sessionStorage)
-docs/                  # Architecture documentation
-  agent-comms-design.md # Agent communication system architecture
-terraform/             # GCP infrastructure
+    components/        # Terminal, Sidebar, Cards, MessageFeed
+    hooks/             # SSE stream management
+terraform/             # GCP infrastructure (Cloud Run, IAM, GCS)
 mcp/                   # MCP server config templates
 Dockerfile             # Multi-stage build
 entrypoint.sh          # Runtime setup
 ```
+
+## Architecture
+
+```
+Browser (React SPA)  ->  Express API (/api/*)  ->  Claude CLI processes
+                          Static serving (/*)       per-agent workspaces
+                          JWT auth                  GCS-synced shared context
+```
+
+Single container, single service. Express handles API routes and serves the React UI. Each agent is an isolated Claude CLI process with its own workspace.
+
+## License
+
+MIT
