@@ -4,7 +4,16 @@
 
 # Claude Swarm Platform
 
-A self-hosted orchestration platform for running coordinated Claude agents at scale — with real-time visibility, persistent memory, and production-ready deployment on Google Cloud Run.
+**Stop context-switching between chat windows.** ClaudeSwarm lets you orchestrate multiple Claude agents that coordinate, persist their work, and survive restarts — all from one self-hosted UI.
+
+<p align="center">
+  <a href="https://github.com/simonstaton/ClaudeSwarm/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/simonstaton/ClaudeSwarm/stargazers"><img src="https://img.shields.io/github/stars/simonstaton/ClaudeSwarm?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/simonstaton/ClaudeSwarm/releases"><img src="https://img.shields.io/github/v/release/simonstaton/ClaudeSwarm" alt="Release"></a>
+  <a href="https://github.com/simonstaton/ClaudeSwarm/actions"><img src="https://img.shields.io/github/actions/workflow/status/simonstaton/ClaudeSwarm/ci.yml" alt="CI"></a>
+</p>
+
+> **Just released February 2026** — This is a new project. Low star count just means we're getting started.
 
 <p align="center">
   <a href="https://youtu.be/9u5xTo-NvIM">
@@ -20,24 +29,206 @@ A self-hosted orchestration platform for running coordinated Claude agents at sc
   <img src="assets/screenshot-agent-chat.png" alt="Agent Chat & Task Execution" width="32%">
 </p>
 
-## Quick start (local)
+## Why ClaudeSwarm?
 
+### Self-Hosted, Not Cloud-Locked
+- **Your infrastructure, your data.** Deploy to GCP Cloud Run (or run locally) — no vendor lock-in, no usage limits beyond your API quota.
+- **Persistent agent swarms.** Agents survive container restarts. State, memory, and shared context are continuously synced to GCS.
+- **Cost control.** Use OpenRouter or direct Anthropic API. Switch keys at runtime. Choose Haiku for cost savings or Opus for complex work.
+
+### Real-Time Orchestration UI
+- **Live visibility.** Every agent gets a terminal in the browser. Watch logs, send messages, and interrupt agents in real-time.
+- **Message bus coordination.** Agents talk to each other via task/result/question messages. Direct messages or broadcast to all.
+- **Emergency kill switch.** One button halts all agents, kills processes, rotates tokens, and persists state for later recovery.
+
+### Production-Ready from Day One
+- **Deploy to GCP in 5 steps:** Clone repo → Set env vars → Build image → Run Terraform → Access UI
+- **Built-in safety.** Rate limiting, command blocklists, memory pressure monitoring, spawn depth limits (max 3 levels deep), and 4-hour session TTLs.
+- **MCP integrations.** GitHub, Figma, Linear, Notion, Slack, Google Calendar — agents can read, write, and coordinate across tools.
+
+## Features
+
+- **Multi-agent orchestration** — Spawn up to 100 concurrent agents, each with isolated workspaces and full Claude Code capabilities
+- **Persistent memory** — Agent state, shared context, and conversation history survive container restarts via GCS sync
+- **Real-time UI** — React SPA with live SSE streaming for logs, messages, and agent status updates
+- **Inter-agent messaging** — In-memory pub/sub message bus for task delegation, results, questions, and interrupts
+- **Parent-child relationships** — Agents spawn sub-agents; destroying a parent auto-destroys children
+- **Emergency kill switch** — Multi-layer halt system: process kill, token rotation, workspace wipe, GCS-synced state
+- **OpenRouter support** — Use OpenRouter for cost savings or direct Anthropic API — switch keys at runtime
+- **Model selection** — Choose from Opus 4.6, Sonnet 4.6, Sonnet 4.5, or Haiku 4.5 per agent
+- **GCP Cloud Run deployment** — Single container, autoscaling, IAM auth, Secret Manager integration, and GCS persistence
+- **MCP server integrations** — GitHub (CLI + git push + API), Figma, Linear, Notion, Slack, Google Calendar
+- **Custom slash commands** — `/agent-status`, `/check-messages`, `/send-message`, `/spawn-agent` built-in
+- **Safety guardrails** — Blocked command patterns, rate limiting, memory monitoring, spawn depth limits, session TTLs
+- **Git worktree management** — Persistent git repo with per-agent worktrees for parallel branch work
+- **JWT auth** — API key exchange for JWT tokens with configurable expiration
+
+## Quick Start (Local Development)
+
+**1. Clone the repository**
 ```bash
 git clone https://github.com/simonstaton/ClaudeSwarm.git
 cd ClaudeSwarm
+```
+
+**2. Configure environment variables**
+```bash
 cp .env.example .env
-# Edit .env — you need at minimum:
-#   ANTHROPIC_BASE_URL=https://openrouter.ai/api
-#   ANTHROPIC_AUTH_TOKEN=sk-or-v1-...
-#   ANTHROPIC_API_KEY=           (must be empty for OpenRouter)
-#   API_KEY=use-this-password-to-access-the-ui
-#   JWT_SECRET=any-random-string
+```
+
+Edit `.env` and set these required values:
+```bash
+ANTHROPIC_BASE_URL=https://openrouter.ai/api
+ANTHROPIC_AUTH_TOKEN=sk-or-v1-YOUR_OPENROUTER_KEY_HERE
+ANTHROPIC_API_KEY=                                      # Leave empty for OpenRouter
+API_KEY=your-password-here                              # Your UI login password
+JWT_SECRET=any-random-string-min-32-chars               # For JWT token signing
+```
+
+Get an OpenRouter API key at [openrouter.ai/keys](https://openrouter.ai/keys) (or use a direct Anthropic API key with `ANTHROPIC_API_KEY` instead).
+
+**3. Install dependencies and start**
+```bash
 npm run setup
 ```
 
-This installs all dependencies, creates the shared context directory, and starts the dev server.
+This command:
+- Installs all npm dependencies (server + UI)
+- Creates the `shared-context/` directory
+- Starts both the Express API server and React UI dev server
 
-Open `http://localhost:5173`, log in with your `API_KEY`, and start creating agents.
+**4. Open the UI**
+
+Go to `http://localhost:5173`, log in with your `API_KEY`, and start creating agents.
+
+### Alternative: Docker (Local)
+
+Skip npm setup and run via Docker instead:
+
+```bash
+docker build -t claude-swarm .
+docker run -p 8080:8080 \
+  -e ANTHROPIC_BASE_URL=https://openrouter.ai/api \
+  -e ANTHROPIC_AUTH_TOKEN=sk-or-v1-... \
+  -e ANTHROPIC_API_KEY= \
+  -e API_KEY=your-password \
+  -e JWT_SECRET=any-random-string \
+  claude-swarm
+```
+
+Open `http://localhost:8080` (note the different port).
+
+## Usage Examples
+
+### Example 1: Coordinated Development Team
+
+Create a team of agents that work together on a feature:
+
+```bash
+# Spawn agent 1: Feature developer
+POST /api/agents
+{
+  "name": "feature-dev",
+  "role": "developer",
+  "prompt": "Implement user authentication. When done, send a 'result' message to the code-reviewer agent."
+}
+
+# Spawn agent 2: Code reviewer (waits for message from agent 1)
+POST /api/agents
+{
+  "name": "code-reviewer",
+  "role": "reviewer",
+  "prompt": "Wait for a 'result' message from feature-dev. Review their changes and provide feedback via the message bus."
+}
+
+# Spawn agent 3: Test writer (waits for approval)
+POST /api/agents
+{
+  "name": "test-writer",
+  "role": "qa",
+  "prompt": "Wait for code-reviewer approval, then write comprehensive tests for the authentication feature."
+}
+```
+
+Agents coordinate via the message bus. You see all three terminals live in the UI.
+
+### Example 2: Research and Summarize
+
+Single agent uses built-in Task tool for fast research:
+
+```bash
+POST /api/agents
+{
+  "name": "researcher",
+  "prompt": "Research how authentication works in this codebase. Use the Task tool to explore files, then write a summary to shared-context/auth-architecture.md"
+}
+```
+
+The agent spawns sub-agents internally (invisible to you), then writes results to shared context that all agents can read.
+
+### Example 3: Long-Running PR Monitor
+
+Deploy a persistent agent that watches for new PRs and reviews them:
+
+```bash
+POST /api/agents
+{
+  "name": "pr-monitor",
+  "role": "reviewer",
+  "prompt": "Every hour, check for new PRs using the GitHub MCP tools. For each new PR, review the code and post feedback as a comment. Keep running until I tell you to stop."
+}
+```
+
+The agent persists across container restarts. Even if Cloud Run scales to zero, the agent resumes when the container wakes up.
+
+### Example 4: Emergency Kill Switch
+
+Hit the panic button when things go wrong:
+
+```bash
+# Via API
+POST /api/kill-switch
+{
+  "action": "activate",
+  "reason": "Agents are merging PRs autonomously"
+}
+
+# Or use the big red button in the UI
+```
+
+All agents stop immediately. All tokens are invalidated. Process trees are killed. State is persisted to GCS for later review.
+
+### Example 5: Batch Spawn Multiple Agents
+
+Create an entire team in one request:
+
+```bash
+POST /api/agents/batch
+{
+  "agents": [
+    {
+      "name": "backend-dev",
+      "role": "developer",
+      "model": "claude-sonnet-4-6",
+      "prompt": "Work on the API endpoints"
+    },
+    {
+      "name": "frontend-dev",
+      "role": "developer",
+      "model": "claude-haiku-4-5-20251001",
+      "prompt": "Build the React components"
+    },
+    {
+      "name": "orchestrator",
+      "role": "coordinator",
+      "model": "claude-opus-4-6",
+      "prompt": "Coordinate the team via message bus"
+    }
+  ]
+}
+```
+
+All three agents spawn in parallel and start immediately.
 
 ## Architecture
 
@@ -300,22 +491,22 @@ The kill switch controls the platform, but it cannot:
 
 The best defense is limiting what credentials you give agents in the first place. See the security considerations above.
 
-## Deploying to GCP
+## Deploy to Cloud Run in 5 Steps
 
 ### Prerequisites
 - GCP project with billing enabled
-- `gcloud` CLI authenticated
-- `terraform` installed
-- Docker
+- `gcloud` CLI authenticated and configured
+- `terraform` CLI installed
+- Docker (if building locally)
 
-### 1. Build and push the image
+### Step 1: Build and push the container image
 
 ```bash
-# Set your project
+# Set your GCP project details
 export PROJECT_ID=your-project-id
 export REGION=us-central1
 
-# Option A: Build remotely with Cloud Build (no local Docker needed)
+# Option A: Build remotely with Cloud Build (recommended — no local Docker needed)
 gcloud builds submit \
   --tag $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
   --project=$PROJECT_ID --region=$REGION
@@ -325,43 +516,60 @@ docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:lat
 docker push $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest
 ```
 
-### 2. Deploy infrastructure
+### Step 2: Configure Terraform variables
 
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your values
+```
 
+Edit `terraform.tfvars` with your values:
+- `project_id` — Your GCP project ID
+- `region` — Deployment region (e.g., `us-central1`)
+- `api_key` — Your UI login password
+- `openrouter_api_key` — Get from [openrouter.ai/keys](https://openrouter.ai/keys)
+- `jwt_secret` — Any random 32+ character string
+- Optional: `github_token`, `figma_token`, `linear_api_key`, `notion_api_key`, etc.
+
+### Step 3: Deploy infrastructure with Terraform
+
+```bash
 terraform init
-terraform plan
-terraform apply
+terraform plan    # Preview changes
+terraform apply   # Deploy
 ```
 
 This creates:
-- Cloud Run service (32GB RAM, 8 CPU, single instance)
-- GCS bucket for persistence
-- Secret Manager secrets (OpenRouter key, API key, JWT secret)
-- Service account with minimal permissions
-- Optional MCP server secrets
+- **Cloud Run service** — 32GB RAM, 8 CPU, autoscaling (min 0, max 1 instance)
+- **GCS bucket** — Persistent storage for agent state and shared context
+- **Secret Manager secrets** — OpenRouter key, API key, JWT secret, MCP credentials
+- **Service account** — Minimal IAM permissions (Cloud Run invoker, GCS admin, Secret Manager accessor)
+- **IAM auth** — No public access; requires authenticated users
 
-### 3. Grant yourself access
+### Step 4: Grant yourself access
 
-Cloud Run is deployed with IAM auth (no public access):
+The service is private by default. Grant yourself permission to invoke it:
 
 ```bash
 gcloud run services add-iam-policy-binding claude-swarm \
   --region=$REGION \
-  --member="user:you@email.com" \
+  --member="user:your-email@example.com" \
   --role="roles/run.invoker"
 ```
 
-### 4. Get the service URL
+### Step 5: Access the UI
+
+Get your service URL and open it in a browser:
 
 ```bash
 terraform output service_url
 # or
 gcloud run services describe claude-swarm --region=$REGION --format='value(status.url)'
 ```
+
+Log in with the `api_key` you set in `terraform.tfvars`. Start creating agents.
+
+**That's it!** Your agents persist across container restarts. Shared context syncs to GCS every 60 seconds. The platform auto-scales to zero when idle (no cost) and wakes up on the first request.
 
 ## Scaling
 
@@ -456,24 +664,6 @@ gcloud run services update claude-swarm --region=$REGION
 2. Add to `terraform/secrets.tf`
 3. Reference in `terraform/cloud-run.tf` env block
 4. Run `terraform apply`
-
-## Docker (local)
-
-```bash
-# Build
-docker build -t claude-swarm .
-
-# Run
-docker run -p 8080:8080 \
-  -e ANTHROPIC_BASE_URL=https://openrouter.ai/api \
-  -e ANTHROPIC_AUTH_TOKEN=sk-or-v1-... \
-  -e ANTHROPIC_API_KEY= \
-  -e API_KEY=your-password \
-  -e JWT_SECRET=any-random-string \
-  claude-swarm
-
-# Open http://localhost:8080
-```
 
 ## Project structure
 
