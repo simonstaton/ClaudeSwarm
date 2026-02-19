@@ -20,8 +20,10 @@ export function createAgentsRouter(
   // List all agents
   router.get("/api/agents", (_req, res) => {
     const agents = agentManager.list();
-    // Update lastActivity for all agents to prevent premature cleanup while UI is active
-    for (const agent of agents) agentManager.touch(agent.id);
+    // NOTE: Previously touched all agents here to prevent TTL cleanup while UI is active.
+    // Removed because it prevents TTL-based cleanup entirely — any open dashboard tab
+    // resets every agent's lastActivity every 5s. Individual agent interactions
+    // (GET /api/agents/:id, message, events) still touch the specific agent.
     res.json(agents);
   });
 
@@ -248,9 +250,35 @@ export function createAgentsRouter(
       return;
     }
     const { role, capabilities, currentTask } = req.body ?? {};
-    if (role !== undefined) agent.role = role;
-    if (capabilities !== undefined) agent.capabilities = capabilities;
-    if (currentTask !== undefined) agent.currentTask = currentTask;
+    // Validate role: must be a short alphanumeric string if provided
+    if (role !== undefined) {
+      if (typeof role !== "string" || role.length > 50) {
+        res.status(400).json({ error: "role must be a string of max 50 characters" });
+        return;
+      }
+      const sanitizedRole = role.replace(/[^a-zA-Z0-9\-_ ]/g, "").trim();
+      if (sanitizedRole) agent.role = sanitizedRole;
+    }
+    // Validate capabilities: must be an array of short strings
+    if (capabilities !== undefined) {
+      if (!Array.isArray(capabilities) || capabilities.some((c: unknown) => typeof c !== "string" || (c as string).length > 100)) {
+        res.status(400).json({ error: "capabilities must be an array of strings (max 100 chars each)" });
+        return;
+      }
+      if (capabilities.length > 20) {
+        res.status(400).json({ error: "capabilities array must have at most 20 entries" });
+        return;
+      }
+      agent.capabilities = capabilities;
+    }
+    // Validate currentTask: must be a string with bounded length
+    if (currentTask !== undefined) {
+      if (typeof currentTask !== "string" || currentTask.length > 500) {
+        res.status(400).json({ error: "currentTask must be a string of max 500 characters" });
+        return;
+      }
+      agent.currentTask = currentTask;
+    }
     agentManager.touch(id);
     res.json(agent);
   });

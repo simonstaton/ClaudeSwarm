@@ -1055,19 +1055,49 @@ export class AgentManager {
   }
 
   private buildEnv(): NodeJS.ProcessEnv {
+    // Layer 0: Whitelist approach — only forward env vars agents actually need.
+    // Previous denylist approach cloned all of process.env and deleted a few secrets,
+    // which leaked OAuth client secrets, GCS bucket names, and other server internals.
+    const ALLOWED_ENV_KEYS = [
+      // Anthropic API access (needed for Claude CLI)
+      "ANTHROPIC_API_KEY",
+      "ANTHROPIC_AUTH_TOKEN",
+      "ANTHROPIC_BASE_URL",
+      // Git operations
+      "GITHUB_TOKEN",
+      "GIT_AUTHOR_NAME",
+      "GIT_AUTHOR_EMAIL",
+      "GIT_COMMITTER_NAME",
+      "GIT_COMMITTER_EMAIL",
+      // Runtime essentials
+      "HOME",
+      "USER",
+      "PATH",
+      "LANG",
+      "LC_ALL",
+      "TERM",
+      "TMPDIR",
+      "TZ",
+      "NODE_ENV",
+      "PORT",
+      // Claude Code config
+      "CLAUDE_HOME",
+      // Shared context
+      "SHARED_CONTEXT_DIR",
+    ];
+
     const env: NodeJS.ProcessEnv = {
-      ...process.env,
       SHELL: "/bin/sh",
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       AGENT_AUTH_TOKEN: generateServiceToken(),
     };
-    // Remove nested session detection so spawned agents don't refuse to start
-    delete env.CLAUDECODE;
-    // Layer 0: Remove server-only secrets agents must never have.
-    // Agents keep ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, and GITHUB_TOKEN (needed for their work)
-    // but lose the ability to forge tokens or authenticate as the server.
-    delete env.JWT_SECRET;
-    delete env.API_KEY;
+
+    for (const key of ALLOWED_ENV_KEYS) {
+      if (process.env[key] !== undefined) {
+        env[key] = process.env[key];
+      }
+    }
+
     return env;
   }
 }
