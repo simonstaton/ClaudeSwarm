@@ -1,28 +1,27 @@
 "use client";
 
 import { Badge, Button } from "@fanvue/ui";
-import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useKillSwitchContext } from "../killSwitch";
 import type { Agent } from "../api";
 import { AgentTerminal } from "../components/AgentTerminal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
 import { type Attachment, PromptInput } from "../components/PromptInput";
-import { AgentHeaderSkeleton } from "../components/Skeleton";
 import { Sidebar } from "../components/Sidebar";
+import { AgentHeaderSkeleton } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { STATUS_BADGE_VARIANT } from "../constants";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useAgentStream } from "../hooks/useAgentStream";
 import { useApi } from "../hooks/useApi";
 import { usePageVisible } from "../hooks/usePageVisible";
+import { useKillSwitchContext } from "../killSwitch";
 
-export function AgentView() {
-  const params = useParams();
-  const id = params?.id as string | undefined;
-  const router = useRouter();
+export function AgentView({ agentId }: { agentId: string }) {
+  const id = agentId;
   const api = useApi();
+  const apiRef = useRef(api);
+  apiRef.current = api;
   const { agents } = useAgentPolling();
   const visible = usePageVisible();
   const [agent, setAgent] = useState<Agent | null>(null);
@@ -39,8 +38,8 @@ export function AgentView() {
   }, [agent?.name]);
 
   // Load agent details and reconnect to stream.
-  // Use refs for clearEvents/reconnect so this effect only re-runs when `id`
-  // changes — not when callback references change (which caused redundant
+  // Use refs for clearEvents/reconnect/api so this effect only re-runs when
+  // `id` changes — not when callback references change (which caused redundant
   // SSE connections and leaked server-side listeners).
   const reconnectRef = useRef(reconnect);
   const clearEventsRef = useRef(clearEvents);
@@ -54,39 +53,37 @@ export function AgentView() {
 
     const load = async () => {
       try {
-        const a = await api.getAgent(id);
+        const a = await apiRef.current.getAgent(id);
         if (cancelled) return;
         setAgent(a);
-        // Clear events before reconnecting to prevent old data from accumulating
         clearEventsRef.current();
         reconnectRef.current();
       } catch (err) {
         console.error("[AgentView] load failed", err);
-        if (!cancelled) router.push("/");
+        if (!cancelled) window.location.href = "/";
       }
     };
     load();
 
-    // Cleanup: clear agent state when switching away or unmounting
     return () => {
       cancelled = true;
       setAgent(null);
     };
-  }, [id, api, router]);
+  }, [id]);
 
   // Refresh agent details periodically (paused when tab is hidden)
   useEffect(() => {
     if (!id || !visible) return;
     const interval = setInterval(async () => {
       try {
-        const a = await api.getAgent(id);
+        const a = await apiRef.current.getAgent(id);
         setAgent(a);
       } catch (err) {
         console.error("[AgentView] agent refresh failed", err);
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, [id, api, visible]);
+  }, [id, visible]);
 
   const handleStopAgent = async () => {
     if (!id) return;
@@ -94,8 +91,8 @@ export function AgentView() {
     setIsStopping(true);
     setStopError(null);
     try {
-      await api.destroyAgent(id);
-      router.push("/");
+      await apiRef.current.destroyAgent(id);
+      window.location.href = "/";
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Failed to stop agent", "error");
       setIsStopping(false);
@@ -208,7 +205,11 @@ export function AgentView() {
         variant="destructive"
       />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar agents={agents} activeId={id || null} onSelect={(agentId) => router.push(`/agents/${agentId}`)} />
+        <Sidebar
+          agents={agents}
+          activeId={id || null}
+          onSelect={(agentId) => (window.location.href = `/agents/${agentId}/`)}
+        />
 
         <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
           {/* Agent header */}
@@ -226,9 +227,7 @@ export function AgentView() {
               {error && <span className="text-xs text-red-400">{error}</span>}
             </div>
             <div className="flex items-center gap-2">
-              {stopError && (
-                <span className="text-xs text-red-400 mr-1">{stopError}</span>
-              )}
+              {stopError && <span className="text-xs text-red-400 mr-1">{stopError}</span>}
               <Button variant="tertiary" size="24" onClick={reconnect}>
                 Reconnect
               </Button>

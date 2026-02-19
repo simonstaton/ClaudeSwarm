@@ -1,19 +1,18 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { SwarmTopology, TopologyNode } from "../api";
 import { Header } from "../components/Header";
 import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
-import { useKillSwitchContext } from "../killSwitch";
 import { useApi } from "../hooks/useApi";
-import type { SwarmTopology, TopologyNode } from "../api";
+import { useKillSwitchContext } from "../killSwitch";
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const NODE_W = 200;
 const NODE_H = 80;
-const H_GAP = 60;   // horizontal gap between siblings
-const V_GAP = 100;  // vertical gap between depth levels
+const H_GAP = 60; // horizontal gap between siblings
+const V_GAP = 100; // vertical gap between depth levels
 const PADDING = 40;
 
 interface LayoutNode extends TopologyNode {
@@ -93,12 +92,18 @@ function computeLayout(topology: SwarmTopology): LayoutNode[] {
 // ── Status colours ────────────────────────────────────────────────────────────
 function statusColor(status: TopologyNode["status"]): { fill: string; stroke: string; text: string } {
   switch (status) {
-    case "running":  return { fill: "#1a3a2a", stroke: "#22c55e", text: "#86efac" };
-    case "idle":     return { fill: "#1c2a3a", stroke: "#3b82f6", text: "#93c5fd" };
-    case "starting": return { fill: "#2a2a1a", stroke: "#eab308", text: "#fde047" };
-    case "restored": return { fill: "#1c2a3a", stroke: "#6366f1", text: "#a5b4fc" };
-    case "error":    return { fill: "#3a1a1a", stroke: "#ef4444", text: "#fca5a5" };
-    default:         return { fill: "#1a1a1a", stroke: "#52525b", text: "#a1a1aa" };
+    case "running":
+      return { fill: "#1a3a2a", stroke: "#22c55e", text: "#86efac" };
+    case "idle":
+      return { fill: "#1c2a3a", stroke: "#3b82f6", text: "#93c5fd" };
+    case "starting":
+      return { fill: "#2a2a1a", stroke: "#eab308", text: "#fde047" };
+    case "restored":
+      return { fill: "#1c2a3a", stroke: "#6366f1", text: "#a5b4fc" };
+    case "error":
+      return { fill: "#3a1a1a", stroke: "#ef4444", text: "#fca5a5" };
+    default:
+      return { fill: "#1a1a1a", stroke: "#52525b", text: "#a1a1aa" };
   }
 }
 
@@ -144,7 +149,6 @@ function Tooltip({ node }: { node: TopologyNode }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function GraphView() {
-  const router = useRouter();
   const api = useApi();
   const { agents } = useAgentPolling();
   const killSwitch = useKillSwitchContext();
@@ -192,7 +196,9 @@ export function GraphView() {
     setOffset((o) => ({ x: o.x + dx, y: o.y + dy }));
   }, []);
 
-  const onMouseUp = useCallback(() => { dragging.current = false; }, []);
+  const onMouseUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
 
   // Scroll to zoom
   const onWheel = useCallback((e: React.WheelEvent) => {
@@ -201,7 +207,10 @@ export function GraphView() {
     setScale((s) => Math.min(3, Math.max(0.2, s * factor)));
   }, []);
 
-  const resetView = useCallback(() => { setOffset({ x: 0, y: 0 }); setScale(1); }, []);
+  const resetView = useCallback(() => {
+    setOffset({ x: 0, y: 0 });
+    setScale(1);
+  }, []);
 
   if (error) {
     return (
@@ -223,7 +232,7 @@ export function GraphView() {
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 overflow-hidden">
       <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar agents={agents} activeId={null} onSelect={(id) => router.push(`/agents/${id}`)} />
+        <Sidebar agents={agents} activeId={null} onSelect={(id) => (window.location.href = `/agents/${id}/`)} />
         <div className="flex-1 relative overflow-hidden">
           {/* Toolbar */}
           <div className="absolute top-3 right-3 z-10 flex gap-2">
@@ -299,8 +308,10 @@ export function GraphView() {
                 const isHovered = hoveredId === node.id;
                 const label = node.name.length > 20 ? `${node.name.slice(0, 19)}…` : node.name;
                 const taskLabel = node.currentTask
-                  ? node.currentTask.length > 28 ? `${node.currentTask.slice(0, 27)}…` : node.currentTask
-                  : node.role ?? node.status;
+                  ? node.currentTask.length > 28
+                    ? `${node.currentTask.slice(0, 27)}…`
+                    : node.currentTask
+                  : (node.role ?? node.status);
 
                 return (
                   <g
@@ -308,7 +319,7 @@ export function GraphView() {
                     data-node="true"
                     transform={`translate(${node.x},${node.y})`}
                     style={{ cursor: "pointer" }}
-                    onClick={() => router.push(`/agents/${node.id}`)}
+                    onClick={() => (window.location.href = `/agents/${node.id}/`)}
                     onMouseEnter={() => setHoveredId(node.id)}
                     onMouseLeave={() => setHoveredId(null)}
                   >
@@ -322,41 +333,17 @@ export function GraphView() {
                       strokeWidth={isHovered ? 2 : 1.5}
                     />
                     {/* Status dot */}
-                    <circle
-                      cx={NODE_W - 14}
-                      cy={14}
-                      r={4}
-                      fill={c.stroke}
-                    />
+                    <circle cx={NODE_W - 14} cy={14} r={4} fill={c.stroke} />
                     {/* Agent name */}
-                    <text
-                      x={12}
-                      y={28}
-                      fontSize={12}
-                      fontWeight={600}
-                      fill={c.text}
-                      fontFamily="monospace"
-                    >
+                    <text x={12} y={28} fontSize={12} fontWeight={600} fill={c.text} fontFamily="monospace">
                       {label}
                     </text>
                     {/* Task / role */}
-                    <text
-                      x={12}
-                      y={48}
-                      fontSize={10}
-                      fill="#71717a"
-                      fontFamily="sans-serif"
-                    >
+                    <text x={12} y={48} fontSize={10} fill="#71717a" fontFamily="sans-serif">
                       {taskLabel}
                     </text>
                     {/* Depth badge */}
-                    <text
-                      x={12}
-                      y={68}
-                      fontSize={9}
-                      fill="#52525b"
-                      fontFamily="monospace"
-                    >
+                    <text x={12} y={68} fontSize={9} fill="#52525b" fontFamily="monospace">
                       depth {node.depth}
                     </text>
 

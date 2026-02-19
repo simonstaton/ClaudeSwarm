@@ -55,7 +55,9 @@ export function createMessagesRouter(messageBus: MessageBus) {
         return;
       }
       if (!type || !["task", "result", "question", "info", "status", "interrupt"].includes(type)) {
-        res.status(400).json({ error: `messages[${i}]: type must be one of: task, result, question, info, status, interrupt` });
+        res
+          .status(400)
+          .json({ error: `messages[${i}]: type must be one of: task, result, question, info, status, interrupt` });
         return;
       }
       if (!content || typeof content !== "string") {

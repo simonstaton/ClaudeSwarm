@@ -1,21 +1,19 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useKillSwitchContext } from "../killSwitch";
 import type { AgentTemplate } from "../agentTemplates";
 import { AgentCard } from "../components/AgentCard";
 import { AgentTemplates } from "../components/AgentTemplates";
 import { Header } from "../components/Header";
 import { type Attachment, PromptInput, type PromptInputDefaultValues } from "../components/PromptInput";
-import { AgentCardSkeleton } from "../components/Skeleton";
 import { Sidebar } from "../components/Sidebar";
+import { AgentCardSkeleton } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useApi } from "../hooks/useApi";
+import { useKillSwitchContext } from "../killSwitch";
 
 export function Dashboard() {
-  const router = useRouter();
   const api = useApi();
   const { agents, loading, refreshAgents } = useAgentPolling();
   const [creating, setCreating] = useState(false);
@@ -57,7 +55,7 @@ export function Dashboard() {
         if (updated.length > 0) {
           // Navigate to the most recently created agent
           const newest = updated.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-          router.push(`/agents/${newest.id}`);
+          window.location.href = `/agents/${newest.id}/`;
         }
       } catch (err: unknown) {
         toast(err instanceof Error ? err.message : "Failed to create agent", "error");
@@ -65,7 +63,7 @@ export function Dashboard() {
         setCreating(false);
       }
     },
-    [router, refreshAgents, api],
+    [refreshAgents, api, toast],
   );
 
   const createModeConfig = useMemo(
@@ -79,7 +77,7 @@ export function Dashboard() {
     <div className="h-screen flex flex-col">
       <Header agentCount={agents.length} killSwitch={killSwitch} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar agents={agents} activeId={null} onSelect={(id) => router.push(`/agents/${id}`)} />
+        <Sidebar agents={agents} activeId={null} onSelect={(id) => (window.location.href = `/agents/${id}/`)} />
         <div className="flex-1 flex flex-col overflow-hidden">
           <main id="main-content" className="flex-1 overflow-y-auto p-6">
             <h2 className="text-lg font-medium mb-6">Agents</h2>
@@ -102,7 +100,7 @@ export function Dashboard() {
                     <AgentCard
                       key={agent.id}
                       agent={agent}
-                      onClick={() => router.push(`/agents/${agent.id}`)}
+                      onClick={() => (window.location.href = `/agents/${agent.id}/`)}
                       parentName={agent.parentId ? agents.find((a) => a.id === agent.parentId)?.name : undefined}
                     />
                   ))}

@@ -12,7 +12,10 @@ interface SidebarProps {
 
 export function Sidebar({ agents, activeId, onSelect }: SidebarProps) {
   return (
-    <aside className="w-56 flex-shrink-0 border-r border-zinc-800 bg-zinc-900/30 overflow-y-auto" aria-label="Agent navigation">
+    <aside
+      className="w-56 flex-shrink-0 border-r border-zinc-800 bg-zinc-900/30 overflow-y-auto"
+      aria-label="Agent navigation"
+    >
       <div className="p-3">
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-2">Agents</p>
         {agents.length === 0 && <p className="text-xs text-zinc-400 px-2">No active agents</p>}

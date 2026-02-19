@@ -686,10 +686,14 @@ export class AgentManager {
       }
     }
 
-    rmSync(agentProc.agent.workspaceDir, { recursive: true, force: true });
+    try {
+      rmSync(agentProc.agent.workspaceDir, { recursive: true, force: true });
+    } catch (err: unknown) {
+      console.warn(`[agents] Failed to remove workspace for ${id.slice(0, 8)}:`, errorMessage(err));
+    }
     try {
       unlinkSync(path.join(EVENTS_DIR, `${id}.jsonl`));
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn(`[agents] Failed to remove event file for ${id.slice(0, 8)}:`, errorMessage(err));
     }
     removeAgentState(id);

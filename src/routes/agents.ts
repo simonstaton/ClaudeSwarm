@@ -60,9 +60,7 @@ export function createAgentsRouter(
       parentId: a.parentId,
       lastActivity: a.lastActivity,
     }));
-    const edges = agents
-      .filter((a) => a.parentId)
-      .map((a) => ({ source: a.parentId as string, target: a.id }));
+    const edges = agents.filter((a) => a.parentId).map((a) => ({ source: a.parentId as string, target: a.id }));
     res.json({ nodes, edges });
   });
 
@@ -283,7 +281,10 @@ export function createAgentsRouter(
     }
     // Validate capabilities: must be an array of short strings
     if (capabilities !== undefined) {
-      if (!Array.isArray(capabilities) || capabilities.some((c: unknown) => typeof c !== "string" || (c as string).length > 100)) {
+      if (
+        !Array.isArray(capabilities) ||
+        capabilities.some((c: unknown) => typeof c !== "string" || (c as string).length > 100)
+      ) {
         res.status(400).json({ error: "capabilities must be an array of strings (max 100 chars each)" });
         return;
       }
@@ -320,22 +321,31 @@ export function createAgentsRouter(
   router.delete("/api/agents/:id", (req: Request, res: Response) => {
     const id = param(req.params.id);
 
-    // Also destroy child agents (spawned by this agent)
-    const children = agentManager.list().filter((a) => a.parentId === id);
-    for (const child of children) {
-      agentManager.destroy(child.id);
-      messageBus.cleanupForAgent(child.id);
-    }
-
-    if (agentManager.destroy(id)) {
-      messageBus.cleanupForAgent(id);
-      // Stop keep-alive if no agents remain
-      if (agentManager.list().length === 0) {
-        stopKeepAlive();
+    try {
+      // Also destroy child agents (spawned by this agent)
+      const children = agentManager.list().filter((a) => a.parentId === id);
+      for (const child of children) {
+        try {
+          agentManager.destroy(child.id);
+          messageBus.cleanupForAgent(child.id);
+        } catch (err: unknown) {
+          console.warn(`[agents] Failed to destroy child agent ${child.id.slice(0, 8)}:`, err);
+        }
       }
-      res.json({ ok: true });
-    } else {
-      res.status(404).json({ error: "Agent not found" });
+
+      if (agentManager.destroy(id)) {
+        messageBus.cleanupForAgent(id);
+        // Stop keep-alive if no agents remain
+        if (agentManager.list().length === 0) {
+          stopKeepAlive();
+        }
+        res.json({ ok: true });
+      } else {
+        res.status(404).json({ error: "Agent not found" });
+      }
+    } catch (err: unknown) {
+      console.error(`[agents] Error destroying agent ${id.slice(0, 8)}:`, err);
+      res.status(500).json({ error: "Failed to destroy agent" });
     }
   });
 

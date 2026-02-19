@@ -265,9 +265,15 @@ agentManager.onIdle((agentId) => {
 const uiDistPath = path.join(__dirname, "ui", "dist");
 app.use(express.static(uiDistPath));
 
-// Dynamic agent route: serve the pre-rendered agent shell for any /agents/:id path.
-// The static export only contains /agents/_/index.html (placeholder param); the
-// client-side router reads the real ID from the URL at runtime.
+// Dynamic agent routes: serve the pre-rendered agent shell for any /agents/:id path.
+// The static export only contains /agents/_/ (placeholder param); the client-side
+// component reads the real ID from window.location.pathname at runtime.
+app.get("/agents/:id/index.txt", (_req, res, next) => {
+  res.type("text/plain");
+  res.sendFile(path.join(uiDistPath, "agents", "_", "index.txt"), (err) => {
+    if (err) next();
+  });
+});
 app.get("/agents/:id{/*rest}", (_req, res, next) => {
   res.sendFile(path.join(uiDistPath, "agents", "_", "index.html"), (err) => {
     if (err) next();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Agent } from "../api";
 import { useApi } from "./useApi";
 import { usePageVisible } from "./usePageVisible";
@@ -10,18 +10,22 @@ export function useAgentPolling() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const visible = usePageVisible();
+  const hasFetchedRef = useRef(false);
+  const apiRef = useRef(api);
+  apiRef.current = api;
 
   const refreshAgents = useCallback(async () => {
-    setLoading(true);
+    if (!hasFetchedRef.current) setLoading(true);
     try {
-      const list = await api.fetchAgents();
+      const list = await apiRef.current.fetchAgents();
       setAgents(list);
     } catch (err) {
       console.error("[useAgentPolling] fetch failed", err);
     } finally {
+      hasFetchedRef.current = true;
       setLoading(false);
     }
-  }, [api]);
+  }, []);
 
   useEffect(() => {
     if (!visible) return;

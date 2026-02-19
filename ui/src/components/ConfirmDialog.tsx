@@ -115,9 +115,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             className={`px-4 py-2 text-sm font-semibold rounded transition-colors ${
-              isDestructive
-                ? "bg-red-700 hover:bg-red-600 text-white"
-                : "bg-zinc-600 hover:bg-zinc-500 text-white"
+              isDestructive ? "bg-red-700 hover:bg-red-600 text-white" : "bg-zinc-600 hover:bg-zinc-500 text-white"
             }`}
           >
             {confirmLabel}

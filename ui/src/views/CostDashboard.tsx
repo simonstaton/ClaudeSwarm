@@ -141,7 +141,8 @@ export function CostDashboard() {
                               <td className="px-4 py-3 text-right text-zinc-400">{formatTokens(agent.tokensUsed)}</td>
                               <td className="px-4 py-3 text-right text-zinc-400">{formatCost(agent.estimatedCost)}</td>
                               <td className="px-4 py-3 text-zinc-400 text-xs">
-                                {new Date(agent.createdAt).toLocaleDateString()} {new Date(agent.createdAt).toLocaleTimeString()}
+                                {new Date(agent.createdAt).toLocaleDateString()}{" "}
+                                {new Date(agent.createdAt).toLocaleTimeString()}
                               </td>
                             </tr>
                           ))

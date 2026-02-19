@@ -12,6 +12,8 @@ export interface KillSwitchState {
 /** Poll the kill switch status every 5s and expose activate/deactivate actions. */
 export function useKillSwitch() {
   const api = useApi();
+  const apiRef = useRef(api);
+  apiRef.current = api;
   const [state, setState] = useState<KillSwitchState>({ killed: false });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,13 +21,12 @@ export function useKillSwitch() {
 
   const fetchState = useCallback(async () => {
     try {
-      const s = await api.getKillSwitchState();
+      const s = await apiRef.current.getKillSwitchState();
       setState(s);
     } catch (err) {
       console.error("[useKillSwitch] fetch failed", err);
-      // Swallow — if server is unreachable we don't want to spam errors
     }
-  }, [api]);
+  }, []);
 
   useEffect(() => {
     fetchState();
@@ -40,7 +41,7 @@ export function useKillSwitch() {
       setLoading(true);
       setError(null);
       try {
-        await api.activateKillSwitch(reason);
+        await apiRef.current.activateKillSwitch(reason);
         await fetchState();
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to activate kill switch");
@@ -48,21 +49,21 @@ export function useKillSwitch() {
         setLoading(false);
       }
     },
-    [api, fetchState],
+    [fetchState],
   );
 
   const deactivate = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      await api.deactivateKillSwitch();
+      await apiRef.current.deactivateKillSwitch();
       await fetchState();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to deactivate kill switch");
     } finally {
       setLoading(false);
     }
-  }, [api, fetchState]);
+  }, [fetchState]);
 
   return { state, loading, error, activate, deactivate };
 }
