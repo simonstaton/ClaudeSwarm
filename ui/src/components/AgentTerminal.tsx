@@ -74,7 +74,7 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
   }, []);
 
   return (
-    <div ref={containerRef} onScroll={handleScroll} className="terminal flex-1 overflow-y-auto p-4 bg-zinc-950">
+    <div ref={containerRef} onScroll={handleScroll} role="log" aria-live="polite" aria-label="Agent terminal output" className="terminal flex-1 overflow-y-auto p-4 bg-zinc-950">
       {blocks.length === 0 && <p className="text-zinc-700 text-sm italic">Waiting for output...</p>}
       {blocks.map((block) => (
         <MemoizedBlock key={block.id} block={block} />
@@ -140,7 +140,13 @@ function Block({ block }: { block: TerminalBlock }) {
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
+<<<<<<< HEAD
             className="text-zinc-400 hover:text-zinc-400 text-xs transition-colors flex items-center gap-1"
+=======
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand tool output" : "Collapse tool output"}
+            className="text-zinc-600 hover:text-zinc-400 text-xs transition-colors flex items-center gap-1"
+>>>>>>> 298fead (feat: add ARIA roles and landmarks to AgentTerminal and Sidebar)
           >
             <span className="text-[10px]">{collapsed ? "▶" : "▼"}</span>
             <span>
