@@ -90,6 +90,8 @@ export interface AgentProcess {
   proc: ChildProcess | null;
   lineBuffer: string;
   listeners: Set<(event: StreamEvent) => void>;
+  /** Track which API message IDs we have already counted usage for. */
+  seenMessageIds: Set<string>;
 }
 
 export interface AuthPayload {
