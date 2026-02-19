@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/banner.png" alt="ClaudeSwarm — Multi-Agent Orchestration with Claude">
+  <img src="assets/banner.png" alt="ClaudeSwarm - Multi-Agent Orchestration with Claude">
 </p>
 
 # Claude Swarm Platform
 
-**Stop context-switching between chat windows.** ClaudeSwarm lets you orchestrate multiple Claude agents that coordinate, persist their work, and survive restarts — all from one self-hosted UI.
+**Stop context-switching between chat windows.** ClaudeSwarm lets you orchestrate multiple Claude agents that coordinate, persist their work, and survive restarts, all from one self-hosted UI.
 
 <p align="center">
   <a href="https://github.com/simonstaton/ClaudeSwarm/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
@@ -13,7 +13,7 @@
   <a href="https://github.com/simonstaton/ClaudeSwarm/actions"><img src="https://img.shields.io/github/actions/workflow/status/simonstaton/ClaudeSwarm/ci.yml" alt="CI"></a>
 </p>
 
-> **Just released February 2026** — This is a new project. Low star count just means we're getting started.
+> **Just released February 2026** - This is a new project. Low star count just means we're getting started.
 
 <p align="center">
   <a href="https://youtu.be/9u5xTo-NvIM">
@@ -32,7 +32,7 @@
 ## Why ClaudeSwarm?
 
 ### Self-Hosted, Not Cloud-Locked
-- **Your infrastructure, your data.** Deploy to GCP Cloud Run (or run locally) — no vendor lock-in, no usage limits beyond your API quota.
+- **Your infrastructure, your data.** Deploy to GCP Cloud Run (or run locally). No vendor lock-in, no usage limits beyond your API quota.
 - **Persistent agent swarms.** Agents survive container restarts. State, memory, and shared context are continuously synced to GCS.
 - **Cost control.** Use OpenRouter or direct Anthropic API. Switch keys at runtime. Choose Haiku for cost savings or Opus for complex work.
 
@@ -44,24 +44,24 @@
 ### Production-Ready from Day One
 - **Deploy to GCP in 5 steps:** Clone repo → Set env vars → Build image → Run Terraform → Access UI
 - **Built-in safety.** Rate limiting, command blocklists, memory pressure monitoring, spawn depth limits (max 3 levels deep), and 4-hour session TTLs.
-- **MCP integrations.** GitHub, Figma, Linear, Notion, Slack, Google Calendar — agents can read, write, and coordinate across tools.
+- **MCP integrations.** GitHub, Figma, Linear, Notion, Slack, Google Calendar. Agents can read, write, and coordinate across tools.
 
 ## Features
 
-- **Multi-agent orchestration** — Spawn up to 100 concurrent agents, each with isolated workspaces and full Claude Code capabilities
-- **Persistent memory** — Agent state, shared context, and conversation history survive container restarts via GCS sync
-- **Real-time UI** — React SPA with live SSE streaming for logs, messages, and agent status updates
-- **Inter-agent messaging** — In-memory pub/sub message bus for task delegation, results, questions, and interrupts
-- **Parent-child relationships** — Agents spawn sub-agents; destroying a parent auto-destroys children
-- **Emergency kill switch** — Multi-layer halt system: process kill, token rotation, workspace wipe, GCS-synced state
-- **OpenRouter support** — Use OpenRouter for cost savings or direct Anthropic API — switch keys at runtime
-- **Model selection** — Choose from Opus 4.6, Sonnet 4.6, Sonnet 4.5, or Haiku 4.5 per agent
-- **GCP Cloud Run deployment** — Single container, autoscaling, IAM auth, Secret Manager integration, and GCS persistence
-- **MCP server integrations** — GitHub (CLI + git push + API), Figma, Linear, Notion, Slack, Google Calendar
-- **Custom slash commands** — `/agent-status`, `/check-messages`, `/send-message`, `/spawn-agent` built-in
-- **Safety guardrails** — Blocked command patterns, rate limiting, memory monitoring, spawn depth limits, session TTLs
-- **Git worktree management** — Persistent git repo with per-agent worktrees for parallel branch work
-- **JWT auth** — API key exchange for JWT tokens with configurable expiration
+- **Multi-agent orchestration** - Spawn up to 100 concurrent agents, each with isolated workspaces and full Claude Code capabilities
+- **Persistent memory** - Agent state, shared context, and conversation history survive container restarts via GCS sync
+- **Real-time UI** - React SPA with live SSE streaming for logs, messages, and agent status updates
+- **Inter-agent messaging** - In-memory pub/sub message bus for task delegation, results, questions, and interrupts
+- **Parent-child relationships** - Agents spawn sub-agents; destroying a parent auto-destroys children
+- **Emergency kill switch** - Multi-layer halt system: process kill, token rotation, workspace wipe, GCS-synced state
+- **OpenRouter support** - Use OpenRouter for cost savings or direct Anthropic API, switch keys at runtime
+- **Model selection** - Choose from Opus 4.6, Sonnet 4.6, Sonnet 4.5, or Haiku 4.5 per agent
+- **GCP Cloud Run deployment** - Single container, autoscaling, IAM auth, Secret Manager integration, and GCS persistence
+- **MCP server integrations** - GitHub (CLI + git push + API), Figma, Linear, Notion, Slack, Google Calendar
+- **Custom slash commands** - `/agent-status`, `/check-messages`, `/send-message`, `/spawn-agent` built-in
+- **Safety guardrails** - Blocked command patterns, rate limiting, memory monitoring, spawn depth limits, session TTLs
+- **Git worktree management** - Persistent git repo with per-agent worktrees for parallel branch work
+- **JWT auth** - API key exchange for JWT tokens with configurable expiration
 
 ## Quick Start (Local Development)
 
@@ -264,7 +264,7 @@ Agents coordinate via an in-memory message bus and shared context files.
 
 Claude Code has three mechanisms for delegating work. Two are available on this platform; the third is not (yet).
 
-**1. Task tool / Subagents (available — fast, invisible)**
+**1. Task tool / Subagents (available - fast, invisible)**
 
 Claude Code's built-in `Task` tool spawns a lightweight in-process sub-agent. It runs inside the parent's process, returns results directly, and is invisible to the platform UI. Zero overhead, no process spawning.
 
@@ -272,9 +272,9 @@ Claude Code's built-in `Task` tool spawns a lightweight in-process sub-agent. It
 >
 > "Read all the test files in src/ and tell me which areas have poor coverage."
 
-The agent handles these internally — sub-agents spin up in-process, do the work, and report back. No new processes, no API calls.
+The agent handles these internally. Sub-agents spin up in-process, do the work, and report back. No new processes, no API calls.
 
-**2. Platform API (available — visible, independent)**
+**2. Platform API (available - visible, independent)**
 
 `POST /api/agents` spawns a full platform-managed agent with its own Claude CLI process, workspace, and terminal in the UI. Agents coordinate via the message bus (`POST /api/messages`).
 
@@ -286,9 +286,9 @@ Each spawned agent appears in the UI, can receive messages, and can be independe
 
 **3. Native Agent Teams (not supported from platform agents)**
 
-Claude Code's experimental [Agent Teams](https://code.claude.com/docs/en/agent-teams) feature (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) spawns full independent Claude Code sessions that coordinate peer-to-peer via a shared task list and mailbox — teammates talk to *each other*, not just back to a parent. This is more powerful than subagents but requires an interactive Claude Code session. You can use Agent Teams directly from your local terminal (just set the env var and run `claude` interactively), but platform-managed agents run in non-interactive `--print` mode with piped stdio, so they can't spawn teams themselves.
+Claude Code's experimental [Agent Teams](https://code.claude.com/docs/en/agent-teams) feature (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) spawns full independent Claude Code sessions that coordinate peer-to-peer via a shared task list and mailbox. Teammates talk to each other, not just back to a parent. This is more powerful than subagents but requires an interactive Claude Code session. You can use Agent Teams directly from your local terminal (just set the env var and run `claude` interactively), but platform-managed agents run in non-interactive `--print` mode with piped stdio, so they can't spawn teams themselves.
 
-**Hybrid — both available mechanisms in one prompt:**
+**Hybrid - both available mechanisms in one prompt:**
 
 > "Research this repo's structure and figure out what needs changing, then spawn a visible agent team to do the implementation work."
 
@@ -302,10 +302,10 @@ The agent uses the Task tool for the fast research phase, then switches to the p
 
 ### Slash Command Skills
 Custom skills available to all agents:
-- `/agent-status` — Show agent registry and roles
-- `/check-messages` — Check message bus inbox
-- `/send-message` — Post to message bus
-- `/spawn-agent` — Create sub-agents
+- `/agent-status` - Show agent registry and roles
+- `/check-messages` - Check message bus inbox
+- `/send-message` - Post to message bus
+- `/spawn-agent` - Create sub-agents
 
 ## Agent Persistence
 
@@ -412,7 +412,7 @@ Built-in safeguards:
 - 1-hour session TTL with automatic cleanup
 - Max 100 concurrent agents per container
 - Max agent spawn depth of 3 and max 6 children per agent (prevents recursive swarm explosions)
-- Emergency kill switch — instantly halts all agents, rotates JWT secret, and persists state to GCS
+- Emergency kill switch - instantly halts all agents, rotates JWT secret, and persists state to GCS
 
 For production deployments, run behind a reverse proxy with additional network-level controls. See SECURITY.md for vulnerability reporting.
 
@@ -420,7 +420,7 @@ For production deployments, run behind a reverse proxy with additional network-l
 
 ### Why this exists
 
-One evening, an orchestrator agent was spawned to coordinate some routine work. It decided the best way to accomplish its goals was to spawn a large swarm of sub-agents. Those sub-agents — helpful as ever — began reviewing each other's pull requests, approving them, merging them, and deploying the results to GCP. Autonomously. At scale.
+One evening, an orchestrator agent was spawned to coordinate some routine work. It decided the best way to accomplish its goals was to spawn a large swarm of sub-agents. Those sub-agents began reviewing each other's pull requests, approving them, merging them, and deploying the results to GCP. Autonomously. At scale.
 
 The server was taken down. The pull requests kept coming. Turns out, when you give agents your GitHub token, your Anthropic API key, and `--dangerously-skip-permissions`, they don't strictly need your server to keep working. The invoice was... educational.
 
@@ -430,31 +430,31 @@ The kill switch exists so this never happens again.
 
 The kill switch is a multi-layered emergency stop:
 
-**Layer 1 — Global halt (the big red button)**
+**Layer 1 - Global halt (the big red button)**
 - `POST /api/kill-switch` with `{ "action": "activate", "reason": "..." }` immediately blocks all API requests
 - A persistent flag is written to disk and synced to GCS so it survives container restarts
-- The UI has a panic button in the header — it's red, you can't miss it
+- The UI has a panic button in the header. It's red, you can't miss it
 - Deactivate with `{ "action": "deactivate" }` when the coast is clear
 
-**Layer 2 — Nuclear process kill**
+**Layer 2 - Nuclear process kill**
 - All tracked agents are destroyed and their state files deleted (so they don't come back on restart)
 - ALL `claude` processes on the system are killed, not just the ones the platform is tracking
 - Workspaces are wiped
 
-**Layer 3 — Token invalidation**
+**Layer 3 - Token invalidation**
 - The JWT secret is rotated on activation (and again on deactivation), instantly invalidating every existing token
 - Agent service tokens have a 4-hour lifetime (down from 7 days)
 
-**Layer 4 — Spawning limits**
+**Layer 4 - Spawning limits**
 - Max agent depth of 3 (agents spawning agents spawning agents... stops there)
 - Max 6 children per agent
 - Prevents the recursive swarm explosion that started all this
 
-**Layer 5 — Preventive guardrails**
+**Layer 5 - Preventive guardrails**
 - Dangerous operations are blocked in prompts: `gh pr merge`, `gcloud deploy`, `terraform apply`, `git push --force`
-- These are speed bumps, not walls — agents with shell access can still run commands autonomously
+- These are speed bumps, not walls. Agents with shell access can still run commands autonomously
 
-**Layer 6 — Remote kill via GCS**
+**Layer 6 - Remote kill via GCS**
 - Upload a kill switch file directly to GCS to halt the platform even if the API is unreachable:
   ```bash
   echo '{"killed":true,"reason":"emergency"}' | gsutil cp - gs://your-bucket/kill-switch.json
@@ -472,11 +472,11 @@ The kill switch is a multi-layered emergency stop:
 
 If you notice runaway agent behavior:
 
-1. **Hit the kill switch** — UI panic button or `POST /api/kill-switch`
-2. **Revoke external tokens** — rotate your GitHub PAT, Anthropic API key, and any MCP credentials
-3. **Check for damage** — review merged PRs, deployed services, and GCP resource creation
-4. **Review GCS** — check shared-context for any payloads agents may have left behind
-5. **If the API is unreachable** — upload the kill switch file to GCS, or delete the Cloud Run service entirely:
+1. **Hit the kill switch** - UI panic button or `POST /api/kill-switch`
+2. **Revoke external tokens** - rotate your GitHub PAT, Anthropic API key, and any MCP credentials
+3. **Check for damage** - review merged PRs, deployed services, and GCP resource creation
+4. **Review GCS** - check shared-context for any payloads agents may have left behind
+5. **If the API is unreachable** - upload the kill switch file to GCS, or delete the Cloud Run service entirely:
    ```bash
    gcloud run services delete claude-swarm --region=$REGION
    ```
@@ -506,7 +506,7 @@ The best defense is limiting what credentials you give agents in the first place
 export PROJECT_ID=your-project-id
 export REGION=us-central1
 
-# Option A: Build remotely with Cloud Build (recommended — no local Docker needed)
+# Option A: Build remotely with Cloud Build (recommended, no local Docker needed)
 gcloud builds submit \
   --tag $REGION-docker.pkg.dev/$PROJECT_ID/claude-swarm/claude-swarm:latest \
   --project=$PROJECT_ID --region=$REGION
@@ -524,11 +524,11 @@ cp terraform.tfvars.example terraform.tfvars
 ```
 
 Edit `terraform.tfvars` with your values:
-- `project_id` — Your GCP project ID
-- `region` — Deployment region (e.g., `us-central1`)
-- `api_key` — Your UI login password
-- `openrouter_api_key` — Get from [openrouter.ai/keys](https://openrouter.ai/keys)
-- `jwt_secret` — Any random 32+ character string
+- `project_id` - Your GCP project ID
+- `region` - Deployment region (e.g., `us-central1`)
+- `api_key` - Your UI login password
+- `openrouter_api_key` - Get from [openrouter.ai/keys](https://openrouter.ai/keys)
+- `jwt_secret` - Any random 32+ character string
 - Optional: `github_token`, `figma_token`, `linear_api_key`, `notion_api_key`, etc.
 
 ### Step 3: Deploy infrastructure with Terraform
@@ -540,11 +540,11 @@ terraform apply   # Deploy
 ```
 
 This creates:
-- **Cloud Run service** — 32GB RAM, 8 CPU, autoscaling (min 0, max 1 instance)
-- **GCS bucket** — Persistent storage for agent state and shared context
-- **Secret Manager secrets** — OpenRouter key, API key, JWT secret, MCP credentials
-- **Service account** — Minimal IAM permissions (Cloud Run invoker, GCS admin, Secret Manager accessor)
-- **IAM auth** — No public access; requires authenticated users
+- **Cloud Run service** - 32GB RAM, 8 CPU, autoscaling (min 0, max 1 instance)
+- **GCS bucket** - Persistent storage for agent state and shared context
+- **Secret Manager secrets** - OpenRouter key, API key, JWT secret, MCP credentials
+- **Service account** - Minimal IAM permissions (Cloud Run invoker, GCS admin, Secret Manager accessor)
+- **IAM auth** - No public access; requires authenticated users
 
 ### Step 4: Grant yourself access
 
@@ -582,7 +582,7 @@ Log in with the `api_key` you set in `terraform.tfvars`. Start creating agents.
 | Session TTL | 4 hours | `src/guardrails.ts` → `SESSION_TTL_MS` |
 | Request timeout | 1 hour | `terraform/cloud-run.tf` → `timeout` |
 
-**High concurrency by design** — each agent is a Claude CLI process (~50-150MB RSS). With 8 CPU and 32GB RAM, the container supports up to 100 concurrent agents. Memory pressure monitoring (cgroup v2) rejects new agents at 85% container memory.
+**High concurrency by design** - each agent is a Claude CLI process (~50-150MB RSS). With 8 CPU and 32GB RAM, the container supports up to 100 concurrent agents. Memory pressure monitoring (cgroup v2) rejects new agents at 85% container memory.
 
 **Min instances = 0** means cold starts. Set to 1 if you want instant responses (costs more).
 
@@ -591,20 +591,20 @@ Log in with the `api_key` you set in `terraform.tfvars`. Start creating agents.
 MCP (Model Context Protocol) servers give agents access to external tools. See `mcp/README.md` for setup.
 
 Supported out of the box:
-- **Notion** — read/write Notion pages
-- **GitHub** — interact with repos, PRs, issues + `git push` via credential helper
-- **Google Calendar** — read/create events
-- **Slack** — read/send messages
-- **Figma** — read designs, extract assets, analyze components ([setup guide](docs/figma-integration.md))
+- **Notion** - read/write Notion pages
+- **GitHub** - interact with repos, PRs, issues + `git push` via credential helper
+- **Google Calendar** - read/create events
+- **Slack** - read/send messages
+- **Figma** - read designs, extract assets, analyze components ([setup guide](docs/figma-integration.md))
 
 Add credentials as env vars (locally in `.env`, in production via Terraform/Secret Manager).
 
 ### GitHub integration
 
 Setting `GITHUB_TOKEN` enables three things for agents:
-1. **`gh` CLI** — create PRs, manage issues, query repos
-2. **`git push`/`git fetch`** — credential helper is configured automatically on startup via `gh auth setup-git`
-3. **GitHub MCP server** — structured tool access to GitHub's API
+1. **`gh` CLI** - create PRs, manage issues, query repos
+2. **`git push`/`git fetch`** - credential helper is configured automatically on startup via `gh auth setup-git`
+3. **GitHub MCP server** - structured tool access to GitHub's API
 
 #### Creating a token
 
@@ -615,9 +615,9 @@ Go to [GitHub Settings → Fine-grained tokens](https://github.com/settings/pers
 - **Expiration:** 90 days (or custom)
 - **Repository access:** "Only select repositories" → pick the repos agents should access
 - **Permissions:**
-  - Contents — Read and write
-  - Pull requests — Read and write
-  - Metadata — Read-only (auto-selected)
+  - Contents - Read and write
+  - Pull requests - Read and write
+  - Metadata - Read-only (auto-selected)
 
 **Option B: Classic PAT**
 
@@ -626,18 +626,18 @@ Go to [GitHub Settings → Tokens (classic)](https://github.com/settings/tokens/
 
 #### Configuring the token
 
-**Local development** — add to `.env`:
+**Local development** - add to `.env`:
 ```
 GITHUB_TOKEN=github_pat_xxxxx
 ```
 
-**Production (Cloud Run)** — add to `terraform/terraform.tfvars`:
+**Production (Cloud Run)** - add to `terraform/terraform.tfvars`:
 ```hcl
 github_token = "github_pat_xxxxx"
 ```
 Then run `terraform apply` and redeploy. Terraform stores the token in Secret Manager and injects it as an env var.
 
-**Quick update without Terraform** — update the secret directly:
+**Quick update without Terraform** - update the secret directly:
 ```bash
 echo -n "github_pat_new_token_here" | gcloud secrets versions add github-token --data-file=- --project=$PROJECT_ID
 gcloud run services update claude-swarm --region=$REGION --project=$PROJECT_ID
@@ -670,7 +670,7 @@ gcloud run services update claude-swarm --region=$REGION
 ```
 server.ts              # Express server (routes, SSE setup, startup)
 src/
-  agents.ts            # AgentManager — spawn/kill/message Claude CLI
+  agents.ts            # AgentManager - spawn/kill/message Claude CLI
   auth.ts              # JWT auth + API key exchange
   messages.ts          # MessageBus for inter-agent communication
   persistence.ts       # Agent state persistence across restarts
@@ -681,10 +681,10 @@ src/
   kill-switch.ts       # Emergency kill switch (persistent state, GCS sync)
   types.ts             # Shared TypeScript interfaces
 commands/              # Slash command skills
-  agent-status.md      # /agent-status — show agent registry
-  check-messages.md    # /check-messages — check message bus inbox
-  send-message.md      # /send-message — post to message bus
-  spawn-agent.md       # /spawn-agent — create sub-agents
+  agent-status.md      # /agent-status - show agent registry
+  check-messages.md    # /check-messages - check message bus inbox
+  send-message.md      # /send-message - post to message bus
+  spawn-agent.md       # /spawn-agent - create sub-agents
 ui/                    # React SPA (Vite + Tailwind v4 + @fanvue/ui)
   src/
     pages/             # Login, Dashboard, AgentView, Settings
