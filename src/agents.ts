@@ -1143,20 +1143,36 @@ export class AgentManager {
   }
 
   private buildEnv(agentId?: string): NodeJS.ProcessEnv {
-    // Layer 0: Whitelist approach — only forward env vars agents actually need.
+    // Layer 0: Allowlist approach — only forward env vars agents actually need.
     // Previous denylist approach cloned all of process.env and deleted a few secrets,
-    // which leaked OAuth client secrets, GCS bucket names, and other server internals.
+    // which leaked OAuth client secrets, GCS bucket names, JWT_SECRET, and other server
+    // internals to agent processes. Now only forwarding specific vars agents need.
+    //
+    // IMPORTANT: When adding entries, ask: "Does the agent process itself need this,
+    // or is it a server-only secret?" Server internals (JWT_SECRET, GCS_BUCKET,
+    // GCP_PROJECT, GOOGLE_APPLICATION_CREDENTIALS, DATABASE_URL, etc.) must NOT be
+    // included — they serve no purpose in agent child processes.
     const ALLOWED_ENV_KEYS = [
       // Anthropic API access (needed for Claude CLI)
       "ANTHROPIC_API_KEY",
       "ANTHROPIC_AUTH_TOKEN",
       "ANTHROPIC_BASE_URL",
-      // Git operations
+      // GitHub CLI and git operations — both token forms needed (gh uses GH_TOKEN,
+      // some tools use GITHUB_TOKEN; include both to avoid breaking either)
+      "GH_TOKEN",
       "GITHUB_TOKEN",
       "GIT_AUTHOR_NAME",
       "GIT_AUTHOR_EMAIL",
       "GIT_COMMITTER_NAME",
       "GIT_COMMITTER_EMAIL",
+      // MCP integration tokens — agents use these via MCP server subprocesses.
+      // Even though entrypoint.sh bakes token values into settings.json, agents
+      // may also make direct API calls using these tokens.
+      "LINEAR_API_KEY",
+      "FIGMA_TOKEN",
+      "SLACK_TOKEN",
+      "NOTION_API_KEY",
+      "GOOGLE_CREDENTIALS",
       // Runtime essentials
       "HOME",
       "USER",
