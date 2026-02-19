@@ -947,7 +947,10 @@ export class AgentManager {
       if (tokensIn > 0 || tokensOut > 0 || totalCost > 0) {
         const prev = agentProc.agent.usage ?? { tokensIn: 0, tokensOut: 0, estimatedCost: 0 };
         agentProc.agent.usage = {
-          tokensIn: prev.tokensIn + tokensIn,
+          // tokensIn is NOT accumulated: each result event's input_tokens already contains
+          // the full conversation context, so summing across turns massively overcounts.
+          // Instead we store the latest value, which reflects current context window usage.
+          tokensIn: tokensIn > 0 ? tokensIn : prev.tokensIn,
           tokensOut: prev.tokensOut + tokensOut,
           estimatedCost: prev.estimatedCost + totalCost,
         };

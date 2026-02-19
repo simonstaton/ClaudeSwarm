@@ -99,7 +99,7 @@ export function CostDashboard() {
                   <div className="bg-zinc-800/30 border border-zinc-700 rounded-lg p-6">
                     <p className="text-xs font-medium text-zinc-400 uppercase mb-2">Total Tokens</p>
                     <p className="text-3xl font-semibold text-zinc-100">{formatTokens(stats.totalTokens)}</p>
-                    <p className="text-xs text-zinc-400 mt-2">Tokens consumed</p>
+                    <p className="text-xs text-zinc-500 mt-2">Context + output tokens</p>
                   </div>
 
                   <div className="bg-zinc-800/30 border border-zinc-700 rounded-lg p-6">
