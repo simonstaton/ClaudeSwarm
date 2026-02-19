@@ -9,7 +9,7 @@ export function createKillSwitchRouter(agentManager: AgentManager): Router {
   const router = Router();
 
   /** GET /api/kill-switch — returns current kill switch status */
-  router.get("/api/kill-switch", (req, res) => {
+  router.get("/api/kill-switch", (_req, res) => {
     res.json(getKillSwitchState());
   });
 

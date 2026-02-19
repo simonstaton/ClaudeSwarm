@@ -201,7 +201,11 @@ export function AgentView({ agentId }: { agentId: string }) {
         onConfirm={handleStopAgent}
         onCancel={() => setShowStopConfirm(false)}
         title={isErrored ? "Destroy this agent?" : "Stop this agent?"}
-        description={isErrored ? "The errored agent will be cleaned up and removed." : "The agent process will be terminated. Any in-progress work may be lost."}
+        description={
+          isErrored
+            ? "The errored agent will be cleaned up and removed."
+            : "The agent process will be terminated. Any in-progress work may be lost."
+        }
         confirmLabel={isErrored ? "Destroy Agent" : "Stop Agent"}
         variant="destructive"
       />
@@ -210,7 +214,7 @@ export function AgentView({ agentId }: { agentId: string }) {
 
         <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
           {/* Agent header */}
-          <header className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/30" aria-label="Agent details">
+          <header className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/30">
             <div className="flex items-center gap-3">
               {agent ? (
                 <>
@@ -220,11 +224,23 @@ export function AgentView({ agentId }: { agentId: string }) {
               ) : (
                 <AgentHeaderSkeleton />
               )}
-              {isStreaming && <span className="text-xs text-zinc-400" aria-live="polite" aria-label="Streaming in progress">streaming...</span>}
-              {error && <span className="text-xs text-red-400" role="alert">{error}</span>}
+              {isStreaming && (
+                <span className="text-xs text-zinc-400" aria-live="polite">
+                  streaming...
+                </span>
+              )}
+              {error && (
+                <span className="text-xs text-red-400" role="alert">
+                  {error}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
-              {stopError && <span className="text-xs text-red-400 mr-1" role="alert">{stopError}</span>}
+              {stopError && (
+                <span className="text-xs text-red-400 mr-1" role="alert">
+                  {stopError}
+                </span>
+              )}
               <Button variant="tertiary" size="24" onClick={reconnect}>
                 Reconnect
               </Button>

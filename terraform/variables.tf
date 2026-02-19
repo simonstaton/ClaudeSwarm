@@ -55,20 +55,6 @@ variable "google_credentials" {
   sensitive   = true
 }
 
-variable "figma_token" {
-  description = "Figma token for MCP"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "linear_api_key" {
-  description = "Linear API key for MCP"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 # Cloud Run access control
 variable "cloud_run_invokers" {
   description = "IAM members allowed to invoke the Cloud Run service (e.g. [\"user:you@example.com\"] or [\"allUsers\"] for public access)"

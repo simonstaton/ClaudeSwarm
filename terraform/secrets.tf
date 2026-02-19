@@ -96,31 +96,3 @@ resource "google_secret_manager_secret_version" "google_credentials" {
   secret      = google_secret_manager_secret.google_credentials[0].id
   secret_data = var.google_credentials
 }
-
-resource "google_secret_manager_secret" "figma_token" {
-  count     = var.figma_token != "" ? 1 : 0
-  secret_id = "figma-token"
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "figma_token" {
-  count       = var.figma_token != "" ? 1 : 0
-  secret      = google_secret_manager_secret.figma_token[0].id
-  secret_data = var.figma_token
-}
-
-resource "google_secret_manager_secret" "linear_api_key" {
-  count     = var.linear_api_key != "" ? 1 : 0
-  secret_id = "linear-api-key"
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret_version" "linear_api_key" {
-  count       = var.linear_api_key != "" ? 1 : 0
-  secret      = google_secret_manager_secret.linear_api_key[0].id
-  secret_data = var.linear_api_key
-}

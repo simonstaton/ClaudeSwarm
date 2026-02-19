@@ -10,10 +10,10 @@ A platform for running Claude agent swarms via a web UI backed by Cloud Run. Age
 - `src/utils/` — Utilities: SSE, Express helpers, file listing, config paths, context
 - `src/templates/` — Workspace CLAUDE.md template generation
 - `ui/` — React SPA (Vite, Tailwind v4, @fanvue/ui)
-- `terraform/` — GCP infrastructure (Cloud Run, GCS, Secret Manager, IAM)
+- `terraform/` — GCP infrastructure (Cloud Run, GCS, Secret Manager, IAM, Cloud Monitoring alerts)
 - `mcp/` — MCP server configuration templates
 - `commands/` — Slash command skills for agents
-- `docs/` — Design documents (agent comms, Figma integration)
+- `docs/` — Design documents, incident runbook
 - `plans/` — Implementation plans (agent teams, kill switch)
 - `home-claude.md` — Agent guidance file (copied to `~/.claude/CLAUDE.md` in container)
 - `Dockerfile` — Multi-stage Docker build
@@ -53,6 +53,10 @@ npm run test:watch    # vitest in watch mode
 - Agents: each gets an isolated `/tmp/workspace-{uuid}` directory
 - Shared context: `.md` files in `/shared-context/` (GCS-synced), symlinked into workspaces
 - Terraform manages all GCP infrastructure — no manual resource creation
+- Request body limits: 10 MB for `/api/agents` (file attachments), 1 MB for all other routes
+- UI routes: `/` (home), `/agents/[id]` (agent view), `/graph`, `/costs`, `/messages`; Settings is a dialog opened from the header
+- Docker base image is pinned to SHA256 digest for reproducible builds (see `Dockerfile` for update instructions)
+- Container image vulnerability scanning via Trivy on every push, PR, and weekly schedule
 
 ## Shared context (persistent memory)
 Agents have a `shared-context/` directory symlinked into their workspace. All `.md` files here persist across sessions and are shared between all agents.
@@ -62,7 +66,7 @@ Agents have a `shared-context/` directory symlinked into their workspace. All `.
 - Write files: `echo "..." > shared-context/my-notes.md` or use the Write tool on `shared-context/filename.md`
 - These files are synced to GCS and survive container restarts
 - Use this for: meeting notes, project context, decisions, task lists, anything you want to remember across sessions
-- The human operator can also view and edit these files from the Settings > Shared Context UI
+- The human operator can also view and edit these files from the Settings dialog (gear icon in header)
 
 **Conventions:**
 - Use descriptive filenames: `standup-2026-02-15.md`, `project-decisions.md`, `todo.md`
@@ -101,6 +105,7 @@ All secrets and config are in `terraform/terraform.tfvars` (gitignored). Require
 Optional MCP integrations (see `mcp/README.md`):
 - `github_token` — enables `gh` CLI, `git push`, and GitHub MCP server for agents
 - `notion_api_key`, `slack_token` — enables respective MCP servers
+- `alert_notification_email` — enables Cloud Monitoring alert policies (error rate, latency, crashes, memory, CPU)
 
 ### Scale-to-zero
 Cloud Run scales to 0 instances after ~15 min of inactivity. The URL is permanent — first request after idle has a ~5-10s cold start.

@@ -21,5 +21,3 @@ cloud_run_invokers = ["allUsers"]
 # notion_api_key      = "ntn_..."
 # slack_token         = "xoxb-..."
 # google_credentials  = "..."
-# figma_token         = "figd_..."       # or authenticate via OAuth (see mcp/README.md)
-# linear_api_key      = "lin_api_..."    # or authenticate via OAuth (see mcp/README.md)

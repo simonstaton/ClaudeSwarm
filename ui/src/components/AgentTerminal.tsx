@@ -20,6 +20,7 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
   const [autoScroll, setAutoScroll] = useState(true);
   const eventsRef = useRef(events);
   const isResetRef = useRef(false);
+  const hasScrolledToBottomOnMount = useRef(false);
 
   // Incremental parsing: only parse new events since last render
   const parsedRef = useRef<{ upTo: number; blocks: TerminalBlock[] }>({ upTo: 0, blocks: [] });
@@ -30,6 +31,8 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
     cached.blocks = [];
     // Mark that we've reset so we don't auto-scroll on agent switch
     isResetRef.current = true;
+    // Reset the mount scroll flag so the new agent's terminal scrolls to bottom
+    hasScrolledToBottomOnMount.current = false;
   }
   if (events.length > cached.upTo) {
     const newBlocks = parseEvents(events, cached.upTo);
@@ -59,6 +62,17 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
   }, [events]);
 
   useEffect(() => {
+    // Scroll to bottom on initial mount when blocks first become available
+    if (!hasScrolledToBottomOnMount.current && blocks.length > 0 && containerRef.current) {
+      // Use setTimeout to ensure DOM is fully rendered
+      setTimeout(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollTop = containerRef.current.scrollHeight;
+          hasScrolledToBottomOnMount.current = true;
+        }
+      }, 0);
+    }
+
     // Skip auto-scroll immediately after a reset (agent switch)
     if (isResetRef.current) {
       isResetRef.current = false;
@@ -84,7 +98,7 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
       aria-label="Agent terminal output"
       className="terminal flex-1 overflow-y-auto p-4 bg-zinc-950"
     >
-      {blocks.length === 0 && <p className="text-zinc-700 text-sm italic">Waiting for output...</p>}
+      {blocks.length === 0 && <p className="text-zinc-400 text-sm italic">Waiting for output...</p>}
       {blocks.map((block) => (
         <MemoizedBlock key={block.id} block={block} />
       ))}
@@ -132,7 +146,7 @@ function Block({ block }: { block: TerminalBlock }) {
         <div className="mb-1.5 rounded bg-zinc-900/80 border border-zinc-800/60 px-3 py-2">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-cyan-500 font-semibold">{toolName}</span>
-            {summary && <span className="text-zinc-500 truncate text-xs font-mono">{summary}</span>}
+            {summary && <span className="text-zinc-400 truncate text-xs font-mono">{summary}</span>}
           </div>
           {block.content && (
             <pre className="text-zinc-400 text-xs mt-1 whitespace-pre-wrap overflow-hidden max-h-24">
@@ -161,7 +175,7 @@ function Block({ block }: { block: TerminalBlock }) {
             </span>
           </button>
           {!collapsed && (
-            <pre className="text-zinc-500 text-xs mt-1 whitespace-pre-wrap max-h-60 overflow-y-auto">
+            <pre className="text-zinc-400 text-xs mt-1 whitespace-pre-wrap max-h-60 overflow-y-auto">
               {block.content}
             </pre>
           )}

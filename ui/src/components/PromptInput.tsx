@@ -486,7 +486,6 @@ export function PromptInput({
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: drop zone for file attachments
     <section
       aria-label="Message input"
       className={`relative border-t border-zinc-800 bg-zinc-900/50 ${isDragOver ? "ring-2 ring-blue-500/50 ring-inset" : ""}`}
@@ -509,7 +508,7 @@ export function PromptInput({
           className="absolute bottom-full left-3 mb-1 w-72 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-20"
         >
           <div className="px-3 py-1.5 border-b border-zinc-700/50" aria-hidden="true">
-            <span className="text-xs text-zinc-500">Commands</span>
+            <span className="text-xs text-zinc-400">Commands</span>
           </div>
           {filteredCommands.map((cmd, i) => (
             <button
@@ -529,7 +528,7 @@ export function PromptInput({
               onMouseEnter={() => setSlashIndex(i)}
             >
               <span className="font-mono text-cyan-400 text-xs shrink-0">{cmd.name}</span>
-              <span className="text-zinc-500 text-xs truncate">{cmd.description}</span>
+              <span className="text-zinc-400 text-xs truncate">{cmd.description}</span>
             </button>
           ))}
         </div>
@@ -543,7 +542,7 @@ export function PromptInput({
           className="absolute bottom-full left-3 mb-1 w-80 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-20"
         >
           <div className="px-3 py-1.5 border-b border-zinc-700/50 flex items-center justify-between" aria-hidden="true">
-            <span className="text-xs text-zinc-500">Files in workspace</span>
+            <span className="text-xs text-zinc-400">Files in workspace</span>
             {fileSearching && <span className="text-xs text-zinc-400 animate-pulse">searching...</span>}
           </div>
           {fileResults.length === 0 ? (
@@ -591,7 +590,7 @@ export function PromptInput({
               value={agentName}
               onChange={(e) => setAgentName(e.target.value)}
               placeholder="my-agent"
-              className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-800 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 font-[var(--font-mono)]"
+              className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-800 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-[var(--font-mono)]"
             />
           </div>
           <div className="w-40 shrink-0">
@@ -636,6 +635,7 @@ export function PromptInput({
               className="relative group shrink-0 flex items-center gap-1.5 bg-zinc-800 border border-zinc-700 rounded-md px-2 py-1"
             >
               {att.type === "image" ? (
+                // biome-ignore lint/performance/noImgElement: base64 data URIs not supported by next/image
                 <img src={att.data} alt={att.name} className="h-8 w-8 rounded object-cover" />
               ) : (
                 <FileIcon filename={att.name} />
@@ -671,7 +671,7 @@ export function PromptInput({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
-          className="shrink-0 p-2 text-zinc-500 hover:text-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded hover:bg-zinc-800"
+          className="shrink-0 p-2 text-zinc-400 hover:text-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded hover:bg-zinc-800"
           title="Attach file or image (or paste / drag & drop)"
           aria-label="Attach file or image"
         >
@@ -696,7 +696,7 @@ export function PromptInput({
           <button
             type="button"
             onClick={() => setShowCreateConfig((v) => !v)}
-            className={`shrink-0 p-2 transition-colors rounded hover:bg-zinc-800 ${showCreateConfig ? "text-cyan-400" : "text-zinc-500 hover:text-zinc-300"}`}
+            className={`shrink-0 p-2 transition-colors rounded hover:bg-zinc-800 ${showCreateConfig ? "text-cyan-400" : "text-zinc-400 hover:text-zinc-200"}`}
             title="Agent settings (name, model, max turns)"
             aria-label="Toggle agent settings"
             aria-expanded={showCreateConfig}
@@ -725,7 +725,7 @@ export function PromptInput({
           rows={1}
           aria-label={createMode ? "Agent prompt" : "Message to agent"}
           aria-multiline="true"
-          className="flex-1 resize-none bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed font-[var(--font-mono)]"
+          className="flex-1 resize-none bg-zinc-800/50 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed font-[var(--font-mono)]"
         />
 
         <Button
@@ -739,7 +739,7 @@ export function PromptInput({
       </div>
 
       {/* Keyboard hints */}
-      <div className="px-3 pb-1.5 flex items-center gap-3 text-[10px] text-zinc-700">
+      <div className="px-3 pb-1.5 flex items-center gap-3 text-[10px] text-zinc-400">
         {!createMode && (
           <span>
             <kbd className="px-1 bg-zinc-800 rounded text-zinc-400">/</kbd> commands

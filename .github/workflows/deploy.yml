@@ -14,9 +14,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
+      actions: read            # Required by codeql-action to read workflow run info
       contents: read
-      id-token: write  # Required for Workload Identity Federation
-      security-events: write  # Required for SARIF upload to GitHub Security tab
+      id-token: write          # Required for Workload Identity Federation
+      security-events: write   # Required for SARIF upload to GitHub Security tab
 
     steps:
       - name: Checkout
@@ -35,11 +36,8 @@ jobs:
       - name: Authenticate Docker to Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      - name: Build and push Docker image
-        run: |
-          docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
-          docker push ${{ env.IMAGE }}:${{ github.sha }}
-          docker push ${{ env.IMAGE }}:latest
+      - name: Build Docker image
+        run: docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
 
       - name: Scan image (JSON report artifact)
         uses: aquasecurity/trivy-action@0.28.0
@@ -65,12 +63,17 @@ jobs:
 
       - name: Upload SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
         with:
           sarif_file: trivy-results.sarif
           category: trivy-container-scan
 
       - name: Scan image (fail on CRITICAL/HIGH)
         uses: aquasecurity/trivy-action@0.28.0
+        env:
+          TRIVY_FORMAT: table
+          TRIVY_OUTPUT: ""
         with:
           image-ref: ${{ env.IMAGE }}:${{ github.sha }}
           format: table
@@ -79,6 +82,11 @@ jobs:
           vuln-type: os,library
           severity: CRITICAL,HIGH
           trivyignores: .trivyignore
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
 
       - name: Upload scan reports as artifacts
         uses: actions/upload-artifact@v4

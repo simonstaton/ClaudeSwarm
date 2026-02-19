@@ -42,6 +42,7 @@ export function TreeListSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="space-y-2 py-1">
       {Array.from({ length: rows }, (_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list with fixed order
         <div key={i} className="flex items-center gap-2 px-2">
           <Skeleton className="h-3 w-3 rounded-sm" />
           <Skeleton className={`h-3 ${i % 3 === 0 ? "w-32" : i % 3 === 1 ? "w-24" : "w-28"}`} />

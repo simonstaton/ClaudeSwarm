@@ -75,6 +75,7 @@ export function ConfirmDialog({
   const isDestructive = variant === "destructive";
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop click-to-dismiss
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={(e) => {

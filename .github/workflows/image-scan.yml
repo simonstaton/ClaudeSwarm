@@ -16,8 +16,9 @@ jobs:
     name: Trivy Container Scan
     runs-on: ubuntu-latest
     permissions:
+      actions: read            # Required by codeql-action to read workflow run info
       contents: read
-      security-events: write  # Required for SARIF upload to GitHub Security tab
+      security-events: write   # Required for SARIF upload to GitHub Security tab
 
     steps:
       - name: Checkout
@@ -41,6 +42,7 @@ jobs:
       - name: Upload SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
           sarif_file: trivy-results.sarif
           category: trivy-container-scan
@@ -61,6 +63,9 @@ jobs:
       # Table report — human-readable output; exits 1 if CRITICAL or HIGH found → fails the build
       - name: Run Trivy scan (fail on CRITICAL/HIGH)
         uses: aquasecurity/trivy-action@0.28.0
+        env:
+          TRIVY_FORMAT: table
+          TRIVY_OUTPUT: ""
         with:
           image-ref: claude-swarm:${{ github.sha }}
           format: table

@@ -1,12 +1,12 @@
 "use client";
 
-import { Settings } from "../../views/Settings";
-import { ProtectedShell } from "../protected-shell";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
-export default function SettingsPage() {
-  return (
-    <ProtectedShell>
-      <Settings />
-    </ProtectedShell>
-  );
+export default function SettingsRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/");
+  }, [router]);
+  return null;
 }

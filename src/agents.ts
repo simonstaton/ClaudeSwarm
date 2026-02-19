@@ -200,6 +200,7 @@ export class AgentManager {
         proc: null,
         lineBuffer: "",
         listeners: new Set(),
+        seenMessageIds: new Set(),
       };
       this.agents.set(agent.id, agentProc);
       console.log(`[restore] Restored agent ${agent.name} (${agent.id.slice(0, 8)})`);
@@ -295,6 +296,7 @@ export class AgentManager {
       proc,
       lineBuffer: "",
       listeners: new Set(),
+      seenMessageIds: new Set(),
     };
 
     this.agents.set(id, agentProc);
@@ -524,6 +526,30 @@ export class AgentManager {
     "claude-sonnet-4-5-20250929": 200_000,
     "claude-haiku-4-5-20251001": 200_000,
   };
+
+  /** Per-million-token pricing by model (USD). */
+  private static readonly MODEL_PRICING: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {
+    "claude-opus-4-6": { input: 15, output: 75, cacheRead: 1.875, cacheWrite: 18.75 },
+    "claude-sonnet-4-6": { input: 3, output: 15, cacheRead: 0.30, cacheWrite: 3.75 },
+    "claude-sonnet-4-5-20250929": { input: 3, output: 15, cacheRead: 0.30, cacheWrite: 3.75 },
+    "claude-haiku-4-5-20251001": { input: 0.80, output: 4, cacheRead: 0.08, cacheWrite: 1 },
+  };
+
+  /** Estimate cost in USD from token usage and model pricing. */
+  private static estimateCost(
+    model: string,
+    usage: { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number },
+  ): number {
+    const pricing = AgentManager.MODEL_PRICING[model];
+    if (!pricing) return 0;
+    const perM = 1_000_000;
+    return (
+      ((usage.input_tokens ?? 0) / perM) * pricing.input +
+      ((usage.output_tokens ?? 0) / perM) * pricing.output +
+      ((usage.cache_read_input_tokens ?? 0) / perM) * pricing.cacheRead +
+      ((usage.cache_creation_input_tokens ?? 0) / perM) * pricing.cacheWrite
+    );
+  }
 
   /** Return token usage and estimated cost for a single agent. */
   getUsage(id: string): AgentUsage | null {
@@ -825,6 +851,18 @@ export class AgentManager {
     });
 
     proc.on("close", (code) => {
+      // Flush any remaining data in the line buffer (e.g. final result event
+      // from the CLI that may not have a trailing newline)
+      if (agentProc.lineBuffer.trim()) {
+        try {
+          const event = JSON.parse(agentProc.lineBuffer) as StreamEvent;
+          this.handleEvent(id, event);
+        } catch {
+          this.handleEvent(id, { type: "raw", text: agentProc.lineBuffer });
+        }
+        agentProc.lineBuffer = "";
+      }
+
       this.handleEvent(id, { type: "done", exitCode: code ?? undefined });
       const ap = this.agents.get(id);
       if (ap) {
@@ -856,7 +894,42 @@ export class AgentManager {
       saveAgentState(agentProc.agent);
     }
 
-    // Parse token usage from result events emitted by claude CLI stream-json
+    // Parse token usage from assistant events emitted by claude CLI stream-json.
+    // The CLI emits multiple "assistant" events per API message (one per content block),
+    // each carrying the same usage snapshot. We deduplicate by message ID so each
+    // API call's tokens are counted exactly once.
+    if (event.type === "assistant") {
+      const msg = event.message as Record<string, unknown> | undefined;
+      const msgId = msg?.id as string | undefined;
+      const usage = msg?.usage as {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+      } | undefined;
+
+      if (msgId && usage && !agentProc.seenMessageIds.has(msgId)) {
+        agentProc.seenMessageIds.add(msgId);
+
+        const tokensIn = (usage.input_tokens ?? 0)
+          + (usage.cache_creation_input_tokens ?? 0)
+          + (usage.cache_read_input_tokens ?? 0);
+        const tokensOut = usage.output_tokens ?? 0;
+        const cost = AgentManager.estimateCost(agentProc.agent.model, usage);
+
+        if (tokensIn > 0 || tokensOut > 0) {
+          const prev = agentProc.agent.usage ?? { tokensIn: 0, tokensOut: 0, estimatedCost: 0 };
+          agentProc.agent.usage = {
+            tokensIn: prev.tokensIn + tokensIn,
+            tokensOut: prev.tokensOut + tokensOut,
+            estimatedCost: prev.estimatedCost + cost,
+          };
+          saveAgentState(agentProc.agent);
+        }
+      }
+    }
+
+    // Legacy: also handle "result" events in case a future CLI version emits them
     if (event.type === "result") {
       const usage = event.usage as { input_tokens?: number; output_tokens?: number } | undefined;
       const totalCost = typeof event.total_cost_usd === "number" ? event.total_cost_usd : 0;

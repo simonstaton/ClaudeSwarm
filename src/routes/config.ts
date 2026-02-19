@@ -14,7 +14,7 @@ export function createConfigRouter() {
   // Get current settings
   router.get("/api/settings", (_req, res) => {
     const isOpenRouter = !!process.env.ANTHROPIC_AUTH_TOKEN;
-    const key = isOpenRouter ? process.env.ANTHROPIC_AUTH_TOKEN! : process.env.ANTHROPIC_API_KEY || "";
+    const key = (isOpenRouter ? process.env.ANTHROPIC_AUTH_TOKEN : process.env.ANTHROPIC_API_KEY) || "";
     res.json({
       anthropicKeyHint: key ? `...${key.slice(-8)}` : "(not set)",
       keyMode: isOpenRouter ? "openrouter" : "anthropic",

@@ -11,9 +11,9 @@
 # All policies are skipped (count = 0) when that variable is empty.
 
 locals {
-  swarm_service_name    = "claude-swarm"
-  alert_channels        = var.alert_notification_email != "" ? [google_monitoring_notification_channel.email_alerts[0].name] : []
-  enable_alerts         = var.alert_notification_email != "" ? 1 : 0
+  swarm_service_name = "claude-swarm"
+  alert_channels     = var.alert_notification_email != "" ? [google_monitoring_notification_channel.email_alerts[0].name] : []
+  enable_alerts      = var.alert_notification_email != "" ? 1 : 0
 }
 
 # ---------------------------------------------------------------------------
@@ -56,12 +56,12 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
       ])
 
       comparison      = "COMPARISON_GT"
-      threshold_value = 5 # errors per minute (after ALIGN_RATE * 60s)
+      threshold_value = 5 # total 5xx count per 60s alignment window
       duration        = "300s"
 
       aggregations {
         alignment_period     = "60s"
-        per_series_aligner   = "ALIGN_RATE"
+        per_series_aligner   = "ALIGN_SUM"
         cross_series_reducer = "REDUCE_SUM"
         group_by_fields      = ["resource.labels.service_name"]
       }

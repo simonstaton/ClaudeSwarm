@@ -20,6 +20,9 @@ jobs:
       run:
         working-directory: terraform
 
+    env:
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,20 +37,27 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        run: terraform init
+        run: |
+          if [ -n "$TF_STATE_BUCKET" ]; then
+            terraform init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
+          else
+            terraform init -backend=false
+          fi
 
       - name: Terraform Validate
         run: terraform validate
 
       - name: Terraform Plan
+        if: env.TF_STATE_BUCKET != ''
         id: plan
-        run: terraform plan -no-color -out=tfplan
+        run: terraform plan -no-color -input=false -out=tfplan
         env:
           TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
           TF_VAR_image: placeholder
         continue-on-error: true
 
       - name: Post plan to PR
+        if: steps.plan.outcome != '' && steps.plan.outcome != 'skipped'
         uses: actions/github-script@v7
         with:
           script: |

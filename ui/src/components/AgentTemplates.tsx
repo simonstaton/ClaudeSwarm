@@ -27,15 +27,15 @@ export function AgentTemplates({ onSelect }: AgentTemplatesProps) {
               {template.label}
             </span>
           </div>
-          <p className="text-[11px] text-zinc-500 group-hover:text-zinc-400 leading-snug mb-2">
+          <p className="text-[11px] text-zinc-400 group-hover:text-zinc-300 leading-snug mb-2">
             {template.description}
           </p>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700/50">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50">
               {modelLabels[template.model] || template.model}
             </span>
             {template.maxTurns < 200 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700/50">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50">
                 {template.maxTurns} turns
               </span>
             )}
