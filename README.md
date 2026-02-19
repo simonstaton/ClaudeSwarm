@@ -9,7 +9,6 @@
 <p align="center">
   <a href="https://github.com/simonstaton/ClaudeSwarm/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
   <a href="https://github.com/simonstaton/ClaudeSwarm/stargazers"><img src="https://img.shields.io/github/stars/simonstaton/ClaudeSwarm?style=social" alt="GitHub stars"></a>
-  <a href="https://github.com/simonstaton/ClaudeSwarm/releases"><img src="https://img.shields.io/github/v/release/simonstaton/ClaudeSwarm" alt="Release"></a>
   <a href="https://github.com/simonstaton/ClaudeSwarm/actions"><img src="https://img.shields.io/github/actions/workflow/status/simonstaton/ClaudeSwarm/ci.yml" alt="CI"></a>
 </p>
 

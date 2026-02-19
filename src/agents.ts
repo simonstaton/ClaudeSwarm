@@ -528,17 +528,25 @@ export class AgentManager {
   };
 
   /** Per-million-token pricing by model (USD). */
-  private static readonly MODEL_PRICING: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {
+  private static readonly MODEL_PRICING: Record<
+    string,
+    { input: number; output: number; cacheRead: number; cacheWrite: number }
+  > = {
     "claude-opus-4-6": { input: 15, output: 75, cacheRead: 1.875, cacheWrite: 18.75 },
-    "claude-sonnet-4-6": { input: 3, output: 15, cacheRead: 0.30, cacheWrite: 3.75 },
-    "claude-sonnet-4-5-20250929": { input: 3, output: 15, cacheRead: 0.30, cacheWrite: 3.75 },
-    "claude-haiku-4-5-20251001": { input: 0.80, output: 4, cacheRead: 0.08, cacheWrite: 1 },
+    "claude-sonnet-4-6": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+    "claude-sonnet-4-5-20250929": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+    "claude-haiku-4-5-20251001": { input: 0.8, output: 4, cacheRead: 0.08, cacheWrite: 1 },
   };
 
   /** Estimate cost in USD from token usage and model pricing. */
   private static estimateCost(
     model: string,
-    usage: { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number },
+    usage: {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    },
   ): number {
     const pricing = AgentManager.MODEL_PRICING[model];
     if (!pricing) return 0;
@@ -901,19 +909,20 @@ export class AgentManager {
     if (event.type === "assistant") {
       const msg = event.message as Record<string, unknown> | undefined;
       const msgId = msg?.id as string | undefined;
-      const usage = msg?.usage as {
-        input_tokens?: number;
-        output_tokens?: number;
-        cache_creation_input_tokens?: number;
-        cache_read_input_tokens?: number;
-      } | undefined;
+      const usage = msg?.usage as
+        | {
+            input_tokens?: number;
+            output_tokens?: number;
+            cache_creation_input_tokens?: number;
+            cache_read_input_tokens?: number;
+          }
+        | undefined;
 
       if (msgId && usage && !agentProc.seenMessageIds.has(msgId)) {
         agentProc.seenMessageIds.add(msgId);
 
-        const tokensIn = (usage.input_tokens ?? 0)
-          + (usage.cache_creation_input_tokens ?? 0)
-          + (usage.cache_read_input_tokens ?? 0);
+        const tokensIn =
+          (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
         const tokensOut = usage.output_tokens ?? 0;
         const cost = AgentManager.estimateCost(agentProc.agent.model, usage);
 
