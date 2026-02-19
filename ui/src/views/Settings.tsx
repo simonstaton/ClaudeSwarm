@@ -1,11 +1,10 @@
 "use client";
 
-import { Alert, Button, PasswordField, Tabs, TabsContent, TabsList, TabsTrigger, TextField } from "@fanvue/ui";
-import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
+import { Alert, Button, PasswordField, TextField } from "@fanvue/ui";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ClaudeConfigFile, ContextFile, createApi } from "../api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Skeleton, TreeListSkeleton } from "../components/Skeleton";
-import { useApi } from "../hooks/useApi";
 
 // ── Generic file tree utilities ─────────────────────────────────────────────
 
@@ -223,107 +222,8 @@ function useFolderToggle(initial: Set<string> = new Set()) {
   return { expanded, setExpanded, toggle };
 }
 
-// ── Settings Dialog ──────────────────────────────────────────────────────────
-
-export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const api = useApi();
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    dialogRef.current?.focus();
-  }, [open]);
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (e.key === "Tab" && dialogRef.current) {
-        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    },
-    [onClose],
-  );
-
-  if (!open) return null;
-
-  return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop click-to-dismiss
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Settings"
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-        className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col focus:outline-none"
-        style={{ width: "min(92vw, 1100px)", height: "85vh" }}
-      >
-        {/* Dialog header */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-zinc-800 flex-shrink-0">
-          <h2 className="text-sm font-semibold text-zinc-200">Settings</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close settings"
-            className="text-zinc-500 hover:text-zinc-200 transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-800"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <Tabs defaultValue="context" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="px-6 border-b border-zinc-800 flex-shrink-0">
-            <TabsTrigger value="context">Shared Context</TabsTrigger>
-            <TabsTrigger value="config">Claude Config</TabsTrigger>
-            <TabsTrigger value="guardrails">Guardrails</TabsTrigger>
-            <TabsTrigger value="apikey">API Key</TabsTrigger>
-          </TabsList>
-
-          <div className="flex-1 overflow-y-auto p-6">
-            <TabsContent value="context">
-              <ContextPanel api={api} />
-            </TabsContent>
-            <TabsContent value="config">
-              <ConfigPanel api={api} />
-            </TabsContent>
-            <TabsContent value="guardrails">
-              <GuardrailsPanel api={api} />
-            </TabsContent>
-            <TabsContent value="apikey">
-              <ApiKeyPanel api={api} />
-            </TabsContent>
-          </div>
-        </Tabs>
-      </div>
-    </div>
-  );
-}
-
 // ── Shared Context Panel ────────────────────────────────────────────────────
-function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
+export function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [files, setFiles] = useState<ContextFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
@@ -534,7 +434,7 @@ const TREE_CATEGORIES: Record<string, string> = {
   memory: "memory/",
 };
 
-function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
+export function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [files, setFiles] = useState<ClaudeConfigFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ClaudeConfigFile | null>(null);
@@ -867,7 +767,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
 }
 
 // ── API Key Panel ───────────────────────────────────────────────────────────
-function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
+export function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [hint, setHint] = useState("");
   const [mode, setMode] = useState<"openrouter" | "anthropic">("openrouter");
   const [newKey, setNewKey] = useState("");
@@ -945,7 +845,7 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
 }
 
 // ── Guardrails Panel ────────────────────────────────────────────────────────
-function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
+export function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");

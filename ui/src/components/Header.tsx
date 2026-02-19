@@ -4,7 +4,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "../auth";
 import type { KillSwitchState } from "../hooks/useKillSwitch";
-import { SettingsDialog } from "../views/Settings";
 
 interface HeaderProps {
   agentCount: number;
@@ -21,7 +20,6 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [confirming, setConfirming] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handlePanicClick = () => {
     if (killSwitch.state.killed) return;
@@ -105,8 +103,13 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
             </button>
             <button
               type="button"
-              onClick={() => setSettingsOpen(true)}
-              className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+              onClick={() => router.push("/settings")}
+              aria-current={pathname.startsWith("/settings") ? "page" : undefined}
+              className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                pathname.startsWith("/settings")
+                  ? "bg-zinc-700 text-zinc-100"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+              }`}
             >
               Settings
             </button>
@@ -120,8 +123,6 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
           </nav>
         </div>
       </header>
-
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* Full-screen confirmation modal — rendered outside the header so it covers the whole page */}
       {confirming && (
