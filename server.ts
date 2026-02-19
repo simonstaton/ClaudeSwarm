@@ -79,7 +79,10 @@ app.use((_req, res, next) => {
 // ── CORS (configurable via CORS_ORIGINS env var) ────────────────────────────
 app.use(corsMiddleware);
 
-app.use(express.json({ limit: "15mb" }));
+// Agent routes accept file attachments — allow up to 10 MB for those endpoints.
+// All other routes use a 1 MB cap to limit DoS surface area (issue #65).
+app.use("/api/agents", express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "1mb" }));
 
 // ── Layer 1: Kill switch middleware ─────────────────────────────────────────
 // Checked BEFORE auth so even valid tokens get blocked when the switch is active.
