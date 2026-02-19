@@ -105,7 +105,7 @@ function TreeList<T>({
             <div key={folderKey}>
               <button
                 type="button"
-                className="flex items-center w-full px-2 py-1.5 rounded text-sm text-zinc-500 hover:bg-zinc-800/50 cursor-pointer"
+                className="flex items-center w-full px-2 py-1.5 rounded text-sm text-zinc-400 hover:bg-zinc-800/50 cursor-pointer"
                 style={{ paddingLeft: `${8 + depth * 12}px` }}
                 onClick={() => onToggleFolder(folderKey)}
               >
@@ -410,7 +410,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
       />
       {/* File list */}
       <div className="w-56 flex-shrink-0 space-y-2">
-        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Context files</p>
+        <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Context files</p>
         <p className="text-xs text-zinc-400 mb-3">Shared .md files accessible to all agents</p>
         {loading ? (
           <TreeListSkeleton rows={5} />
@@ -461,7 +461,7 @@ function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-zinc-400 font-mono">{selected}</span>
               <div className="flex items-center gap-2">
-                {editor.message && <span className="text-xs text-zinc-500">{editor.message}</span>}
+                {editor.message && <span className="text-xs text-zinc-400">{editor.message}</span>}
                 {editor.isDirty && !editor.message && <span className="text-xs text-amber-400">Unsaved</span>}
                 <Button variant="primary" size="24" onClick={saveFile} disabled={editor.saving} loading={editor.saving}>
                   Save
@@ -650,7 +650,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
 
             return (
               <div key={group.category}>
-                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">{group.label}</p>
+                <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">{group.label}</p>
                 <p className="text-[11px] text-zinc-400 mb-2">{group.description}</p>
 
                 <div className="space-y-0.5">
@@ -684,7 +684,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                               e.stopPropagation();
                               if (node.data) setPendingDelete(node.data);
                             }}
-                            className="text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                            className="text-zinc-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                           >
                             x
                           </Button>
@@ -713,7 +713,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                               e.stopPropagation();
                               setPendingDelete(f);
                             }}
-                            className="text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                            className="text-zinc-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                           >
                             x
                           </Button>
@@ -821,7 +821,7 @@ function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
           <div className="flex-1 flex items-center justify-center text-zinc-400 text-sm">
             <div className="text-center space-y-2">
               <p>Select a config file to view or edit</p>
-              <p className="text-[11px] text-zinc-700">
+              <p className="text-[11px] text-zinc-400">
                 Create skills with the + button to add shared slash commands for all agents
               </p>
             </div>
@@ -873,7 +873,7 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
   return (
     <div className="max-w-lg space-y-6">
       <div>
-        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">
+        <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">
           Current API Key
           <span
             className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${mode === "openrouter" ? "bg-emerald-900/50 text-emerald-400" : "bg-orange-900/50 text-orange-400"}`}
@@ -887,7 +887,7 @@ function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
       </div>
 
       <div>
-        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Switch API Key</p>
+        <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Switch API Key</p>
         <div className="flex gap-2">
           <PasswordField
             value={newKey}
@@ -982,7 +982,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
         <div className="grid grid-cols-2 gap-4">
           {/* Spawn Limits */}
           <div className="space-y-3">
-            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Spawn Limits</p>
+            <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Spawn Limits</p>
 
             <div>
               {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
@@ -997,7 +997,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 size="40"
                 fullWidth
               />
-              <p className="text-xs text-zinc-700 mt-1">Range: 1-50 (default: 10)</p>
+              <p className="text-xs text-zinc-400 mt-1">Range: 1-50 (default: 10)</p>
             </div>
 
             <div>
@@ -1013,7 +1013,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 size="40"
                 fullWidth
               />
-              <p className="text-xs text-zinc-700 mt-1">Range: 1-100 (default: 20)</p>
+              <p className="text-xs text-zinc-400 mt-1">Range: 1-100 (default: 20)</p>
             </div>
 
             <div>
@@ -1029,7 +1029,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 size="40"
                 fullWidth
               />
-              <p className="text-xs text-zinc-700 mt-1">Range: 1-10 (default: 3)</p>
+              <p className="text-xs text-zinc-400 mt-1">Range: 1-10 (default: 3)</p>
             </div>
 
             <div>
@@ -1045,13 +1045,13 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 size="40"
                 fullWidth
               />
-              <p className="text-xs text-zinc-700 mt-1">Range: 1-20 (default: 6)</p>
+              <p className="text-xs text-zinc-400 mt-1">Range: 1-20 (default: 6)</p>
             </div>
           </div>
 
           {/* Session Limits */}
           <div className="space-y-3">
-            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Session Limits</p>
+            <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Session Limits</p>
 
             <div>
               {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesnt support htmlFor pattern */}
@@ -1066,7 +1066,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 size="40"
                 fullWidth
               />
-              <p className="text-xs text-zinc-700 mt-1">Range: 1,000-1,000,000 (default: 100,000)</p>
+              <p className="text-xs text-zinc-400 mt-1">Range: 1,000-1,000,000 (default: 100,000)</p>
             </div>
 
             <div>
@@ -1082,7 +1082,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 size="40"
                 fullWidth
               />
-              <p className="text-xs text-zinc-700 mt-1">Range: 1-10,000 (default: 500)</p>
+              <p className="text-xs text-zinc-400 mt-1">Range: 1-10,000 (default: 500)</p>
             </div>
 
             <div>
@@ -1098,7 +1098,7 @@ function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 size="40"
                 fullWidth
               />
-              <p className="text-xs text-zinc-700 mt-1">Range: 60,000-86,400,000 (1min-24hr, default: 4hr)</p>
+              <p className="text-xs text-zinc-400 mt-1">Range: 60,000-86,400,000 (1min-24hr, default: 4hr)</p>
             </div>
           </div>
         </div>

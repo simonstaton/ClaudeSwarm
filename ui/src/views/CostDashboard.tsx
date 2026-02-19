@@ -91,21 +91,21 @@ export function CostDashboard() {
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                   <div className="bg-zinc-800/30 border border-zinc-700 rounded-lg p-6">
-                    <p className="text-xs font-medium text-zinc-500 uppercase mb-2">Total Cost</p>
+                    <p className="text-xs font-medium text-zinc-400 uppercase mb-2">Total Cost</p>
                     <p className="text-3xl font-semibold text-zinc-100">{formatCost(stats.totalCost)}</p>
-                    <p className="text-xs text-zinc-500 mt-2">Estimated cost</p>
+                    <p className="text-xs text-zinc-400 mt-2">Estimated cost</p>
                   </div>
 
                   <div className="bg-zinc-800/30 border border-zinc-700 rounded-lg p-6">
-                    <p className="text-xs font-medium text-zinc-500 uppercase mb-2">Total Tokens</p>
+                    <p className="text-xs font-medium text-zinc-400 uppercase mb-2">Total Tokens</p>
                     <p className="text-3xl font-semibold text-zinc-100">{formatTokens(stats.totalTokens)}</p>
-                    <p className="text-xs text-zinc-500 mt-2">Tokens consumed</p>
+                    <p className="text-xs text-zinc-400 mt-2">Tokens consumed</p>
                   </div>
 
                   <div className="bg-zinc-800/30 border border-zinc-700 rounded-lg p-6">
-                    <p className="text-xs font-medium text-zinc-500 uppercase mb-2">Active Agents</p>
+                    <p className="text-xs font-medium text-zinc-400 uppercase mb-2">Active Agents</p>
                     <p className="text-3xl font-semibold text-zinc-100">{stats.agentCount}</p>
-                    <p className="text-xs text-zinc-500 mt-2">Running agents</p>
+                    <p className="text-xs text-zinc-400 mt-2">Running agents</p>
                   </div>
                 </div>
 
@@ -125,7 +125,7 @@ export function CostDashboard() {
                       <tbody className="divide-y divide-zinc-700">
                         {stats.agents.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
+                            <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
                               No agents found
                             </td>
                           </tr>

@@ -17,7 +17,7 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
       aria-label="Agent navigation"
     >
       <div className="p-3">
-        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-2">Agents</p>
+        <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2 px-2">Agents</p>
         {agents.length === 0 && <p className="text-xs text-zinc-400 px-2">No active agents</p>}
         <nav aria-label="Agent list" className="space-y-0.5">
           {agents.map((agent) => (
