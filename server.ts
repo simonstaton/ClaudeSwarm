@@ -15,6 +15,7 @@ import { createHealthRouter } from "./src/routes/health";
 import { createKillSwitchRouter } from "./src/routes/kill-switch";
 import { createMcpRouter } from "./src/routes/mcp";
 import { createMessagesRouter } from "./src/routes/messages";
+import { createUsageRouter } from "./src/routes/usage";
 import { ensureDefaultContextFiles, startPeriodicSync, stopPeriodicSync, syncFromGCS, syncToGCS } from "./src/storage";
 import { getContextDir } from "./src/utils/context";
 import { rateLimitMiddleware } from "./src/validation";
@@ -136,6 +137,7 @@ function stopKeepAlive() {
 app.use(createHealthRouter(agentManager, MEMORY_LIMIT_BYTES));
 app.use(createAgentsRouter(agentManager, messageBus, startKeepAlive, stopKeepAlive, isMemoryPressure));
 app.use(createMessagesRouter(messageBus));
+app.use(createUsageRouter(agentManager));
 app.use(createConfigRouter());
 app.use(createContextRouter());
 app.use(createMcpRouter());

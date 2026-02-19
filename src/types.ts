@@ -3,6 +3,17 @@ import type { Request } from "express";
 
 export type AgentStatus = "starting" | "running" | "idle" | "error" | "restored" | "killing" | "destroying";
 
+export interface AgentUsage {
+  tokensIn: number;
+  tokensOut: number;
+  tokensTotal: number;
+  tokenLimit: number;
+  tokensRemaining: number;
+  estimatedCost: number;
+  model: string;
+  sessionStart: string;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -18,6 +29,12 @@ export interface Agent {
   parentId?: string;
   /** Layer 4: Spawn depth, set immutably at creation time. Depth 1 = top-level agent. */
   depth: number;
+  /** Cumulative token usage across all sessions for this agent. */
+  usage?: {
+    tokensIn: number;
+    tokensOut: number;
+    estimatedCost: number;
+  };
 }
 
 export type MessageType = "task" | "result" | "question" | "info" | "status" | "interrupt";

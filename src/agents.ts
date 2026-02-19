@@ -26,7 +26,7 @@ import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, write
 import { sanitizeEvent } from "./sanitize";
 import { debouncedSyncToGCS } from "./storage";
 import { generateWorkspaceClaudeMd } from "./templates/workspace-claude-md";
-import type { Agent, AgentProcess, CreateAgentRequest, PromptAttachment, StreamEvent } from "./types";
+import type { Agent, AgentProcess, AgentUsage, CreateAgentRequest, PromptAttachment, StreamEvent } from "./types";
 import { errorMessage } from "./types";
 import { getContextDir } from "./utils/context";
 import { scanCommands, walkMdFiles } from "./utils/files";
@@ -517,6 +517,47 @@ export class AgentManager {
     return this.readPersistedEvents(id);
   }
 
+  /** Context window limit per model (approximate values). */
+  private static readonly TOKEN_LIMITS: Record<string, number> = {
+    "claude-opus-4-6": 200_000,
+    "claude-sonnet-4-6": 200_000,
+    "claude-sonnet-4-5-20250929": 200_000,
+    "claude-haiku-4-5-20251001": 200_000,
+  };
+
+  /** Return token usage and estimated cost for a single agent. */
+  getUsage(id: string): AgentUsage | null {
+    const agentProc = this.agents.get(id);
+    if (!agentProc) return null;
+    const { agent } = agentProc;
+    const tokensIn = agent.usage?.tokensIn ?? 0;
+    const tokensOut = agent.usage?.tokensOut ?? 0;
+    const tokensTotal = tokensIn + tokensOut;
+    const tokenLimit = AgentManager.TOKEN_LIMITS[agent.model] ?? 200_000;
+    return {
+      tokensIn,
+      tokensOut,
+      tokensTotal,
+      tokenLimit,
+      tokensRemaining: Math.max(0, tokenLimit - tokensTotal),
+      estimatedCost: Math.round((agent.usage?.estimatedCost ?? 0) * 1e6) / 1e6,
+      model: agent.model,
+      sessionStart: agent.createdAt,
+    };
+  }
+
+  /** Return token usage for all agents, keyed by agent ID. */
+  getAllUsage(): { agents: Array<{ id: string; name: string; usage: AgentUsage }> } {
+    const result: Array<{ id: string; name: string; usage: AgentUsage }> = [];
+    for (const agentProc of this.agents.values()) {
+      const usage = this.getUsage(agentProc.agent.id);
+      if (usage) {
+        result.push({ id: agentProc.agent.id, name: agentProc.agent.name, usage });
+      }
+    }
+    return { agents: result };
+  }
+
   /** Return session logs for an agent in a readable format.
    *  Supports filtering by event type and limiting to the last N entries. */
   async getLogs(id: string, opts?: { types?: string[]; tail?: number }): Promise<{ lines: string[]; total: number }> {
@@ -815,6 +856,23 @@ export class AgentManager {
     if (event.type === "system" && event.subtype === "init" && event.session_id) {
       agentProc.agent.claudeSessionId = event.session_id as string;
       saveAgentState(agentProc.agent);
+    }
+
+    // Parse token usage from result events emitted by claude CLI stream-json
+    if (event.type === "result") {
+      const usage = event.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+      const totalCost = typeof event.total_cost_usd === "number" ? event.total_cost_usd : 0;
+      const tokensIn = usage?.input_tokens ?? 0;
+      const tokensOut = usage?.output_tokens ?? 0;
+      if (tokensIn > 0 || tokensOut > 0 || totalCost > 0) {
+        const prev = agentProc.agent.usage ?? { tokensIn: 0, tokensOut: 0, estimatedCost: 0 };
+        agentProc.agent.usage = {
+          tokensIn: prev.tokensIn + tokensIn,
+          tokensOut: prev.tokensOut + tokensOut,
+          estimatedCost: prev.estimatedCost + totalCost,
+        };
+        saveAgentState(agentProc.agent);
+      }
     }
 
     agentProc.agent.lastActivity = new Date().toISOString();

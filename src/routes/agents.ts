@@ -283,6 +283,17 @@ export function createAgentsRouter(
     res.json(agent);
   });
 
+  // Token usage and cost for a single agent
+  router.get("/api/agents/:id/usage", (req: Request, res: Response) => {
+    const id = param(req.params.id);
+    const usage = agentManager.getUsage(id);
+    if (!usage) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    res.json(usage);
+  });
+
   // Destroy agent
   router.delete("/api/agents/:id", (req: Request, res: Response) => {
     const id = param(req.params.id);
