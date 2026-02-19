@@ -154,11 +154,14 @@ export function createAgentsRouter(
         return;
       }
 
-      // Save any attachments to the agent's workspace and append file refs to prompt
-      let fullPrompt = prompt;
+      // Save any attachments to the agent's workspace and append file refs to prompt.
+      // Normalize prompt to empty string so attachment-only messages don't produce
+      // a fullPrompt that starts with the "\n\n" separator from saveAttachments.
+      const promptText = typeof prompt === "string" ? prompt : "";
+      let fullPrompt = promptText;
       if (Array.isArray(attachments) && attachments.length > 0) {
         const suffix = agentManager.saveAttachments(agent.workspaceDir, attachments);
-        fullPrompt = prompt + suffix;
+        fullPrompt = promptText ? promptText + suffix : suffix.trimStart();
       }
 
       console.log(`[message] Agent ${agentId}, prompt: "${fullPrompt.slice(0, 80)}"`);
