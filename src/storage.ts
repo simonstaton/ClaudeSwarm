@@ -1,4 +1,4 @@
-import { existsSync, type FSWatcher, mkdirSync, watch, writeFileSync } from "node:fs";
+import { existsSync, type FSWatcher, mkdirSync, readdirSync, rmSync, statSync, watch, writeFileSync } from "node:fs";
 import path from "node:path";
 import { errorMessage } from "./types";
 import { getContextDir } from "./utils/context";
@@ -161,6 +161,178 @@ async function deleteFile(gcsPath: string): Promise<void> {
     }, `deleteFile(${gcsPath})`);
   } catch (err: unknown) {
     console.warn(`GCS deletion failed for ${gcsPath}:`, errorMessage(err));
+  }
+}
+
+/**
+ * Remove stale Claude Code session data from ~/.claude that was created by
+ * destroyed/expired agent workspaces.  Claude Code creates per-project dirs
+ * under `projects/`, `todos/`, `debug/`, and `shell-snapshots/` keyed by
+ * workspace path.  Because agent workspaces are ephemeral
+ * (`/tmp/workspace-{uuid}`), these accumulate without bound.
+ *
+ * @param activeWorkspaceDirs - Set of workspace directory paths belonging to
+ *   agents that are still active (will be preserved).
+ */
+export async function cleanupClaudeHome(activeWorkspaceDirs: Set<string>): Promise<void> {
+  const activeUUIDs = new Set<string>();
+  for (const dir of activeWorkspaceDirs) {
+    const match = dir.match(/workspace-([0-9a-f-]+)/);
+    if (match) activeUUIDs.add(match[1]);
+  }
+
+  let localCleaned = 0;
+  const gcsPrefixesToDelete: string[] = [];
+
+  // Clean projects/ — each subdir is named like `-tmp-workspace-{uuid}`
+  const projectsDir = path.join(CLAUDE_HOME, "projects");
+  if (existsSync(projectsDir)) {
+    try {
+      for (const entry of readdirSync(projectsDir)) {
+        const match = entry.match(/workspace-([0-9a-f-]+)/);
+        if (!match) continue;
+        if (activeUUIDs.has(match[1])) continue;
+        const fullPath = path.join(projectsDir, entry);
+        try {
+          rmSync(fullPath, { recursive: true, force: true });
+          localCleaned++;
+          gcsPrefixesToDelete.push(`claude-home/projects/${entry}/`);
+        } catch {}
+      }
+    } catch {}
+  }
+
+  // Clean todos/ — files/dirs named like `-tmp-workspace-{uuid}...`
+  const todosDir = path.join(CLAUDE_HOME, "todos");
+  if (existsSync(todosDir)) {
+    try {
+      for (const entry of readdirSync(todosDir)) {
+        const match = entry.match(/workspace-([0-9a-f-]+)/);
+        if (!match) continue;
+        if (activeUUIDs.has(match[1])) continue;
+        try {
+          rmSync(path.join(todosDir, entry), { recursive: true, force: true });
+          localCleaned++;
+          gcsPrefixesToDelete.push(`claude-home/todos/${entry}`);
+        } catch {}
+      }
+    } catch {}
+  }
+
+  // Trim debug/ and shell-snapshots/ to the newest MAX_KEPT files
+  const MAX_KEPT = 20;
+  for (const subdir of ["debug", "shell-snapshots"]) {
+    const dir = path.join(CLAUDE_HOME, subdir);
+    if (!existsSync(dir)) continue;
+    try {
+      const entries = readdirSync(dir)
+        .map((name) => {
+          try {
+            return { name, mtime: statSync(path.join(dir, name)).mtimeMs };
+          } catch {
+            return null;
+          }
+        })
+        .filter((e): e is { name: string; mtime: number } => e !== null)
+        .sort((a, b) => b.mtime - a.mtime);
+
+      for (const entry of entries.slice(MAX_KEPT)) {
+        try {
+          rmSync(path.join(dir, entry.name), { recursive: true, force: true });
+          localCleaned++;
+          gcsPrefixesToDelete.push(`claude-home/${subdir}/${entry.name}`);
+        } catch {}
+      }
+    } catch {}
+  }
+
+  if (localCleaned > 0) {
+    console.log(`[cleanup] Removed ${localCleaned} stale claude-home entries locally`);
+  }
+
+  // Delete stale entries from GCS so they don't get re-downloaded on next cold start
+  if (gcsPrefixesToDelete.length > 0) {
+    deleteGCSPrefixes(gcsPrefixesToDelete).catch((err: unknown) => {
+      console.warn("[cleanup] GCS stale entry deletion failed:", errorMessage(err));
+    });
+  }
+}
+
+/** Delete multiple GCS objects/prefixes in parallel batches. */
+async function deleteGCSPrefixes(prefixes: string[]): Promise<void> {
+  const gcs = await getStorage();
+  if (!gcs || !GCS_BUCKET) return;
+
+  const bucket = gcs.bucket(GCS_BUCKET);
+  let deleted = 0;
+
+  const BATCH = 20;
+  for (let i = 0; i < prefixes.length; i += BATCH) {
+    const batch = prefixes.slice(i, i + BATCH);
+    await Promise.all(
+      batch.map(async (prefix) => {
+        try {
+          if (prefix.endsWith("/")) {
+            const [files] = await bucket.getFiles({ prefix });
+            await Promise.all(files.map((f: { delete: () => Promise<unknown> }) => f.delete().catch(() => {})));
+            deleted += files.length;
+          } else {
+            await bucket
+              .file(prefix)
+              .delete()
+              .catch(() => {});
+            deleted++;
+          }
+        } catch {}
+      }),
+    );
+    await yieldToEventLoop();
+  }
+
+  if (deleted > 0) {
+    console.log(`[cleanup] Deleted ${deleted} stale file(s) from GCS claude-home/`);
+  }
+}
+
+/**
+ * Clean up a single agent's Claude Code project data when it's destroyed.
+ * Removes `~/.claude/projects/-tmp-workspace-{uuid}` and matching todos.
+ */
+export function cleanupAgentClaudeData(workspaceDir: string): void {
+  const match = workspaceDir.match(/workspace-([0-9a-f-]+)/);
+  if (!match) return;
+
+  const slug = workspaceDir.replace(/\//g, "-").replace(/^-/, "");
+  let cleaned = 0;
+  const gcsToDelete: string[] = [];
+
+  const projectDir = path.join(CLAUDE_HOME, "projects", slug);
+  if (existsSync(projectDir)) {
+    try {
+      rmSync(projectDir, { recursive: true, force: true });
+      cleaned++;
+      gcsToDelete.push(`claude-home/projects/${slug}/`);
+    } catch {}
+  }
+
+  const todosDir = path.join(CLAUDE_HOME, "todos");
+  if (existsSync(todosDir)) {
+    try {
+      for (const entry of readdirSync(todosDir)) {
+        if (entry.includes(match[1])) {
+          try {
+            rmSync(path.join(todosDir, entry), { recursive: true, force: true });
+            cleaned++;
+            gcsToDelete.push(`claude-home/todos/${entry}`);
+          } catch {}
+        }
+      }
+    } catch {}
+  }
+
+  if (cleaned > 0) {
+    console.log(`[cleanup] Removed ${cleaned} claude-home entries for workspace ${match[1].slice(0, 8)}`);
+    deleteGCSPrefixes(gcsToDelete).catch(() => {});
   }
 }
 

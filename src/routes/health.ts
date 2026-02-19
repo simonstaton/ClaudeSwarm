@@ -3,15 +3,15 @@ import type { AgentManager } from "../agents";
 import { exchangeKeyForToken } from "../auth";
 import { MAX_AGENTS } from "../guardrails";
 
-export function createHealthRouter(agentManager: AgentManager, memoryLimitBytes: number) {
+export function createHealthRouter(agentManager: AgentManager, memoryLimitBytes: number, isRecovering: () => boolean) {
   const router = express.Router();
 
-  // Health check
+  // Health check — always returns 200 so the startup probe passes during recovery
   router.get("/api/health", (_req, res) => {
     const agents = agentManager.list();
     const { rss, heapUsed, heapTotal } = process.memoryUsage();
     res.json({
-      status: "ok",
+      status: isRecovering() ? "recovering" : "ok",
       timestamp: new Date().toISOString(),
       agents: agents.length,
       maxAgents: MAX_AGENTS,

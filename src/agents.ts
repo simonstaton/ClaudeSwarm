@@ -25,7 +25,7 @@ import {
 } from "./guardrails";
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
 import { sanitizeEvent } from "./sanitize";
-import { debouncedSyncToGCS } from "./storage";
+import { cleanupAgentClaudeData, debouncedSyncToGCS } from "./storage";
 import { generateWorkspaceClaudeMd } from "./templates/workspace-claude-md";
 import type { Agent, AgentProcess, AgentUsage, CreateAgentRequest, PromptAttachment, StreamEvent } from "./types";
 import { errorMessage } from "./types";
@@ -693,6 +693,7 @@ export class AgentManager {
     } catch (err: unknown) {
       console.warn(`[agents] Failed to remove workspace for ${id.slice(0, 8)}:`, errorMessage(err));
     }
+    cleanupAgentClaudeData(agentProc.agent.workspaceDir);
     try {
       unlinkSync(path.join(EVENTS_DIR, `${id}.jsonl`));
     } catch (err: unknown) {

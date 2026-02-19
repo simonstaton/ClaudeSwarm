@@ -17,7 +17,14 @@ import { createKillSwitchRouter } from "./src/routes/kill-switch";
 import { createMcpRouter } from "./src/routes/mcp";
 import { createMessagesRouter } from "./src/routes/messages";
 import { createUsageRouter } from "./src/routes/usage";
-import { ensureDefaultContextFiles, startPeriodicSync, stopPeriodicSync, syncFromGCS, syncToGCS } from "./src/storage";
+import {
+  cleanupClaudeHome,
+  ensureDefaultContextFiles,
+  startPeriodicSync,
+  stopPeriodicSync,
+  syncFromGCS,
+  syncToGCS,
+} from "./src/storage";
 import { getContextDir } from "./src/utils/context";
 import { rateLimitMiddleware } from "./src/validation";
 import { startWorktreeGC } from "./src/worktrees";
@@ -144,8 +151,22 @@ function stopKeepAlive() {
   keepAliveInterval = null;
 }
 
+// ── Recovery state (set during startup while GCS sync + agent restore runs) ─
+let recovering = true;
+
 // ── Mount route modules ──────────────────────────────────────────────────────
-app.use(createHealthRouter(agentManager, MEMORY_LIMIT_BYTES));
+app.use(createHealthRouter(agentManager, MEMORY_LIMIT_BYTES, () => recovering));
+
+// Block non-essential API calls until background recovery (GCS sync + agent
+// restoration) is complete.  Health and auth endpoints are exempt.
+app.use((req, res, next) => {
+  if (!recovering || !req.path.startsWith("/api/") || req.path === "/api/health" || req.path === "/api/auth/token") {
+    next();
+    return;
+  }
+  res.status(503).json({ error: "Server is starting up — restoring agents from previous session", recovering: true });
+});
+
 app.use(createAgentsRouter(agentManager, messageBus, startKeepAlive, stopKeepAlive, isMemoryPressure));
 app.use(createMessagesRouter(messageBus));
 app.use(createUsageRouter(agentManager));
@@ -391,66 +412,17 @@ function cleanupStaleWorkspaces(manager: AgentManager): void {
 
 // ── Startup ─────────────────────────────────────────────────────────────────
 async function start() {
-  // Sync from GCS on startup, then ensure default context files exist
-  await syncFromGCS();
-  ensureDefaultContextFiles();
-  startPeriodicSync();
-
-  // Layer 1+6: Load persisted kill switch state (local file or GCS).
-  // If active, agentManager.killed will be set before any agents are restored.
-  const wasKilled = await loadPersistedState();
-  if (wasKilled) {
-    agentManager.killed = true;
-    console.log("[kill-switch] Kill switch was active on startup — agent restoration skipped");
-  }
-
-  // Layer 2: Check tombstone — if present, skip agent restoration entirely.
-  // This is a belt-and-suspenders check; loadAllAgentStates() also checks.
-  if (hasTombstone()) {
-    console.log("[kill-switch] Tombstone present — skipping all agent restoration");
-  }
-
-  // Clean up stale state from previous container runs before restoring agents
-  cleanupStaleState();
-  cleanupOrphanedProcesses();
-
-  // Restore agents from persisted state (after GCS sync so shared-context is available)
-  // loadAllAgentStates() will skip restoration if tombstone exists
-  agentManager.restoreAgents();
-  cleanupStaleWorkspaces(agentManager);
-  if (agentManager.list().length > 0) {
-    startKeepAlive();
-  }
-
-  // Initialize MCP OAuth token storage directory
-  const { ensureTokenDir } = await import("./src/mcp-oauth-storage");
-  ensureTokenDir();
-
-  // Periodic token refresh — regenerate agent auth token files every 60 minutes
-  // so they never expire (tokens have a 4h TTL, 60min refresh gives ~3h buffer)
-  const tokenRefreshInterval = setInterval(() => {
-    if (!isKilled()) {
-      agentManager.refreshAllAgentTokens();
-    }
-  }, 60 * 60_000);
-  tokenRefreshInterval.unref();
-
-  // Start worktree garbage collection (prunes orphaned worktrees from dead agents)
-  const worktreeGCInterval = startWorktreeGC(() => agentManager.getActiveWorkspaceDirs());
-
-  // Layer 6: Start GCS kill switch poll (10s interval, Storage API not FUSE)
-  const stopGcsPoll = startGcsKillSwitchPoll(async () => {
-    // Remote activation detected — run the same sequence as the API endpoint
-    console.log("[kill-switch] Remote activation via GCS — running emergency shutdown");
-    agentManager.emergencyDestroyAll();
-    const { rotateJwtSecret } = await import("./src/auth");
-    rotateJwtSecret();
-  });
-
   const PORT = parseInt(process.env.PORT ?? "8080", 10);
+
+  // Start listening IMMEDIATELY so the startup probe passes while we recover.
+  // GCS sync and agent restoration happen in the background.
   const server = app.listen(PORT, () => {
     console.log(`ClaudeSwarm listening on :${PORT}`);
   });
+
+  let tokenRefreshInterval: ReturnType<typeof setInterval>;
+  let worktreeGCInterval: ReturnType<typeof setInterval>;
+  let stopGcsPoll: () => void = () => {};
 
   const shutdown = async () => {
     console.log("Shutting down...");
@@ -467,6 +439,62 @@ async function start() {
 
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
+
+  // ── Background recovery (runs while server is already accepting requests) ──
+  try {
+    await syncFromGCS();
+    ensureDefaultContextFiles();
+    startPeriodicSync();
+
+    const wasKilled = await loadPersistedState();
+    if (wasKilled) {
+      agentManager.killed = true;
+      console.log("[kill-switch] Kill switch was active on startup — agent restoration skipped");
+    }
+
+    if (hasTombstone()) {
+      console.log("[kill-switch] Tombstone present — skipping all agent restoration");
+    }
+
+    cleanupStaleState();
+    cleanupOrphanedProcesses();
+
+    agentManager.restoreAgents();
+    cleanupStaleWorkspaces(agentManager);
+
+    // Prune stale Claude Code session data (projects, todos, etc.) for
+    // workspaces that no longer exist, then delete them from GCS so they
+    // are not re-downloaded on the next cold start.
+    await cleanupClaudeHome(agentManager.getActiveWorkspaceDirs());
+    if (agentManager.list().length > 0) {
+      startKeepAlive();
+    }
+
+    const { ensureTokenDir } = await import("./src/mcp-oauth-storage");
+    ensureTokenDir();
+
+    tokenRefreshInterval = setInterval(() => {
+      if (!isKilled()) {
+        agentManager.refreshAllAgentTokens();
+      }
+    }, 60 * 60_000);
+    tokenRefreshInterval.unref();
+
+    worktreeGCInterval = startWorktreeGC(() => agentManager.getActiveWorkspaceDirs());
+
+    stopGcsPoll = startGcsKillSwitchPoll(async () => {
+      console.log("[kill-switch] Remote activation via GCS — running emergency shutdown");
+      agentManager.emergencyDestroyAll();
+      const { rotateJwtSecret } = await import("./src/auth");
+      rotateJwtSecret();
+    });
+
+    console.log("[startup] Recovery complete");
+  } catch (err: unknown) {
+    console.error("[startup] Recovery failed:", err instanceof Error ? err.message : String(err));
+  } finally {
+    recovering = false;
+  }
 }
 
 start().catch((err) => {
