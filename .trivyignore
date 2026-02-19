@@ -1,0 +1,10 @@
+# node-tar CVEs — transitive deps of globally installed npm tools (claude-code, npm itself).
+# Our application does not use tar to extract untrusted archives.
+CVE-2026-23745
+CVE-2026-23950
+CVE-2026-24842
+CVE-2026-26960
+
+# minimatch ReDoS — transitive dep of globally installed npm tools.
+# Our application does not use minimatch with untrusted input.
+CVE-2026-26996

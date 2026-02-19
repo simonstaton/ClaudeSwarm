@@ -26,13 +26,13 @@ RUN apk add --no-cache git bash curl \
        arm64) GH_ARCH="linux_arm64" ;; \
        *)     GH_ARCH="linux_amd64" ;; \
      esac \
-  && curl -fsSL --retry 3 -o /tmp/gh.tar.gz "https://github.com/cli/cli/releases/download/v2.67.0/gh_2.67.0_${GH_ARCH}.tar.gz" \
+  && curl -fsSL --retry 3 -o /tmp/gh.tar.gz "https://github.com/cli/cli/releases/download/v2.87.0/gh_2.87.0_${GH_ARCH}.tar.gz" \
   && tar xzf /tmp/gh.tar.gz -C /tmp \
-  && mv "/tmp/gh_2.67.0_${GH_ARCH}/bin/gh" /usr/local/bin/ \
+  && mv "/tmp/gh_2.87.0_${GH_ARCH}/bin/gh" /usr/local/bin/ \
   && rm -rf /tmp/gh*
 
 # Install Claude Code CLI globally
-RUN npm install -g @anthropic-ai/claude-code@2.1.44
+RUN npm install -g @anthropic-ai/claude-code@2.1.47
 
 # Create non-root user
 RUN addgroup -S agent && adduser -S agent -G agent
