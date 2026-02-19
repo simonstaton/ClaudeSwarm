@@ -5,7 +5,7 @@ import * as guardrails from "../guardrails";
 import { resetSanitizeCache } from "../sanitize";
 import { syncClaudeHome } from "../storage";
 import { errorMessage } from "../types";
-import { CLAUDE_HOME, HOME, isAllowedConfigPath } from "../utils/config-paths";
+import { CLAUDE_HOME, HOME, isAllowedConfigPath, isSymlink } from "../utils/config-paths";
 import { walkDir } from "../utils/files";
 
 export function createConfigRouter() {
@@ -206,6 +206,10 @@ export function createConfigRouter() {
       res.status(403).json({ error: "Access denied" });
       return;
     }
+    if (isSymlink(filePath)) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, content, "utf-8");
     // Sync claude-home to GCS so changes persist across Cloud Run reloads
@@ -368,6 +372,10 @@ export function createConfigRouter() {
       return;
     }
     if (!isAllowedConfigPath(filePath)) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+    if (isSymlink(filePath)) {
       res.status(403).json({ error: "Access denied" });
       return;
     }

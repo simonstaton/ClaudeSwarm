@@ -1,7 +1,7 @@
 import express, { type Request, type Response } from "express";
 import type { MessageBus } from "../messages";
 import type { AgentMessage } from "../types";
-import { param } from "../utils/express";
+import { param, queryString } from "../utils/express";
 
 export function createMessagesRouter(messageBus: MessageBus) {
   const router = express.Router();
@@ -38,14 +38,14 @@ export function createMessagesRouter(messageBus: MessageBus) {
   router.get("/api/messages", (req: Request, res: Response) => {
     const { to, from, channel, type, unreadBy, since, limit, agentRole } = req.query;
     const messages = messageBus.query({
-      to: to as string,
-      from: from as string,
-      channel: channel as string,
-      type: type as AgentMessage["type"],
-      unreadBy: unreadBy as string,
-      since: since as string,
-      limit: limit ? parseInt(limit as string, 10) : undefined,
-      agentRole: agentRole as string,
+      to: queryString(to),
+      from: queryString(from),
+      channel: queryString(channel),
+      type: queryString(type) as AgentMessage["type"] | undefined,
+      unreadBy: queryString(unreadBy),
+      since: queryString(since),
+      limit: limit ? parseInt(queryString(limit) ?? "", 10) : undefined,
+      agentRole: queryString(agentRole),
     });
     res.json(messages);
   });
@@ -92,7 +92,7 @@ export function createMessagesRouter(messageBus: MessageBus) {
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders();
 
-    const agentFilter = req.query.agentId as string | undefined;
+    const agentFilter = queryString(req.query.agentId);
     let closed = false;
 
     const cleanup = () => {

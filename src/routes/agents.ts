@@ -3,7 +3,7 @@ import type { AgentManager } from "../agents";
 import { MAX_BATCH_SIZE } from "../guardrails";
 import type { MessageBus } from "../messages";
 import type { StreamEvent } from "../types";
-import { param } from "../utils/express";
+import { param, queryString } from "../utils/express";
 import { listFilesRecursive } from "../utils/files";
 import { setupSSE } from "../utils/sse";
 import { validateAgentSpec, validateCreateAgent, validateMessage } from "../validation";
@@ -163,7 +163,7 @@ export function createAgentsRouter(
     agentManager.touch(id);
 
     // Support ?after=N to skip events the client already has (for auto-reconnect)
-    const afterIndex = req.query.after ? parseInt(req.query.after as string, 10) : undefined;
+    const afterIndex = req.query.after ? parseInt(queryString(req.query.after) ?? "", 10) : undefined;
 
     // Set up fresh SSE with event replay (skipping events before afterIndex).
     // closeOnDone: false — historical `done` events from previous turns must not
@@ -206,13 +206,13 @@ export function createAgentsRouter(
       return;
     }
 
-    const types = req.query.type ? (req.query.type as string).split(",") : undefined;
-    const tail = req.query.tail ? parseInt(req.query.tail as string, 10) : undefined;
+    const types = req.query.type ? (queryString(req.query.type) ?? "").split(",") : undefined;
+    const tail = req.query.tail ? parseInt(queryString(req.query.tail) ?? "", 10) : undefined;
 
     const { lines, total } = await agentManager.getLogs(id, { types, tail });
 
     // Support plain text output for easy piping in agent terminals
-    if (req.query.format === "text" || req.headers.accept === "text/plain") {
+    if (queryString(req.query.format) === "text" || req.headers.accept === "text/plain") {
       res.setHeader("Content-Type", "text/plain");
       res.send(lines.join("\n"));
       return;
@@ -230,8 +230,8 @@ export function createAgentsRouter(
       return;
     }
 
-    const query = ((req.query.q as string) || "").toLowerCase();
-    const maxResults = Math.min(parseInt(req.query.limit as string, 10) || 50, 200);
+    const query = (queryString(req.query.q) || "").toLowerCase();
+    const maxResults = Math.min(parseInt(queryString(req.query.limit) ?? "", 10) || 50, 200);
 
     try {
       const files = listFilesRecursive(agent.workspaceDir, agent.workspaceDir, query, maxResults);

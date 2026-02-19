@@ -8,7 +8,6 @@ const GCS_BUCKET = process.env.GCS_BUCKET;
 const HOME = process.env.HOME || "/home/agent";
 const CLAUDE_HOME = process.env.CLAUDE_HOME || path.join(HOME, ".claude");
 const SHARED_CONTEXT_DIR = getContextDir();
-const SSH_DIR = path.join(HOME, ".ssh");
 const GITCONFIG = path.join(HOME, ".gitconfig");
 
 // When FUSE is mounted, shared-context is directly on GCS — no sync needed
@@ -177,7 +176,8 @@ export async function syncFromGCS(): Promise<void> {
   if (!FUSE_ACTIVE) {
     await downloadDir("shared-context/", SHARED_CONTEXT_DIR);
   }
-  await downloadDir("ssh/", SSH_DIR);
+  // SSH keys are excluded from GCS sync — they must not be stored in plaintext.
+  // Provision SSH keys via Secret Manager or build-time injection instead.
   await downloadFile("gitconfig", GITCONFIG);
 }
 
@@ -218,7 +218,7 @@ export async function syncToGCS(): Promise<void> {
     if (!FUSE_ACTIVE) {
       await uploadDir(SHARED_CONTEXT_DIR, "shared-context/");
     }
-    await uploadDir(SSH_DIR, "ssh/");
+    // SSH keys are excluded from GCS sync — they must not be stored in plaintext.
     await uploadFile(GITCONFIG, "gitconfig");
   } finally {
     syncInProgress = false;
