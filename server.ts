@@ -26,6 +26,7 @@ import {
   syncToGCS,
 } from "./src/storage";
 import { getContextDir } from "./src/utils/context";
+import { getContainerMemoryUsage } from "./src/utils/memory";
 import { rateLimitMiddleware } from "./src/validation";
 import { startWorktreeGC } from "./src/worktrees";
 
@@ -111,14 +112,13 @@ const messageBus = new MessageBus();
 const agentManager = new AgentManager();
 
 // ── Memory monitoring (#42) ──────────────────────────────────────────────────
-const MEMORY_LIMIT_BYTES = 8 * 1024 * 1024 * 1024; // 8Gi
+const MEMORY_LIMIT_BYTES = 32 * 1024 * 1024 * 1024; // 32Gi — matches Cloud Run container limit
 const MEMORY_WARN_THRESHOLD = 0.75;
 const MEMORY_REJECT_THRESHOLD = 0.85;
 
-/** Returns true when memory usage exceeds the rejection threshold (85% of 8Gi). */
+/** Returns true when container memory exceeds the rejection threshold (85% of limit). */
 function isMemoryPressure(): boolean {
-  const used = process.memoryUsage().rss;
-  return used > MEMORY_LIMIT_BYTES * MEMORY_REJECT_THRESHOLD;
+  return getContainerMemoryUsage() > MEMORY_LIMIT_BYTES * MEMORY_REJECT_THRESHOLD;
 }
 
 // ── Instance keep-alive (prevents Cloud Run scale-to-zero while agents exist) ─
@@ -313,11 +313,13 @@ app.get("/{*splat}", (_req, res) => {
 
 // ── Memory monitor interval ──────────────────────────────────────────────────
 const memoryMonitorInterval = setInterval(() => {
-  const { rss, heapUsed, heapTotal } = process.memoryUsage();
-  const pct = rss / MEMORY_LIMIT_BYTES;
+  const containerMem = getContainerMemoryUsage();
+  const { heapUsed, heapTotal } = process.memoryUsage();
+  const pct = containerMem / MEMORY_LIMIT_BYTES;
   if (pct > MEMORY_WARN_THRESHOLD) {
+    const limitGi = MEMORY_LIMIT_BYTES / 1024 / 1024 / 1024;
     console.warn(
-      `[memory] WARNING: RSS ${(rss / 1024 / 1024).toFixed(0)}MB (${(pct * 100).toFixed(1)}% of 8Gi limit) — ` +
+      `[memory] WARNING: container ${(containerMem / 1024 / 1024).toFixed(0)}MB (${(pct * 100).toFixed(1)}% of ${limitGi}Gi limit) — ` +
         `heap ${(heapUsed / 1024 / 1024).toFixed(0)}/${(heapTotal / 1024 / 1024).toFixed(0)}MB — ` +
         `agents: ${agentManager.list().length}`,
     );

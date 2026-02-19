@@ -103,7 +103,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
         className="shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity mt-0.5"
         onClick={() => setExiting(true)}
       >
-        \u2715
+        {"\u2715"}
       </button>
     </div>
   );

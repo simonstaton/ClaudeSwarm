@@ -168,14 +168,14 @@ describe("rateLimitMiddleware", () => {
     const user = { sub: "test-rate-limit-block" };
     const res = mockRes();
 
-    // Make 60 requests (the limit) — use unique IP to isolate from other tests
-    for (let i = 0; i < 60; i++) {
+    // Make 120 requests (the limit) — use unique IP to isolate from other tests
+    for (let i = 0; i < 120; i++) {
       const mockNext = vi.fn();
       rateLimitMiddleware(mockReq({}, user, "/api/agents", "10.0.0.2"), mockRes(), mockNext);
       expect(mockNext).toHaveBeenCalled();
     }
 
-    // 61st request should be blocked
+    // 121st request should be blocked
     rateLimitMiddleware(mockReq({}, user, "/api/agents", "10.0.0.2"), res, next);
     expect(res.status).toHaveBeenCalledWith(429);
     expect(res.json).toHaveBeenCalledWith({ error: "Rate limit exceeded. Try again in a minute." });

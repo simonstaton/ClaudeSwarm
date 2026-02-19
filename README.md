@@ -219,7 +219,7 @@ Built-in safeguards:
 - Memory pressure monitoring (rejects new agents at 85% memory)
 - Rate limiting on API endpoints
 - 1-hour session TTL with automatic cleanup
-- Max 20 concurrent agents per container
+- Max 100 concurrent agents per container
 - Max agent spawn depth of 3 and max 6 children per agent (prevents recursive swarm explosions)
 - Emergency kill switch — instantly halts all agents, rotates JWT secret, and persists state to GCS
 
@@ -338,7 +338,7 @@ terraform apply
 ```
 
 This creates:
-- Cloud Run service (8GB RAM, 4 CPU, max 5 instances)
+- Cloud Run service (32GB RAM, 8 CPU, single instance)
 - GCS bucket for persistence
 - Secret Manager secrets (OpenRouter key, API key, JWT secret)
 - Service account with minimal permissions
@@ -367,14 +367,14 @@ gcloud run services describe claude-swarm --region=$REGION --format='value(statu
 
 | Setting | Default | How to change |
 |---------|---------|---------------|
-| Max instances | 5 | `terraform/cloud-run.tf` → `max_instance_count` |
-| Concurrency | 2 | `terraform/cloud-run.tf` → `max_instance_request_concurrency` |
-| CPU/Memory | 4 CPU / 8GB | `terraform/cloud-run.tf` → `resources.limits` |
-| Max agents per container | 20 | `src/guardrails.ts` → `MAX_AGENTS` |
-| Session TTL | 1 hour | `src/guardrails.ts` → `SESSION_TTL_MS` |
+| Max instances | 1 | `terraform/cloud-run.tf` → `max_instance_count` |
+| Concurrency | 500 | `terraform/cloud-run.tf` → `max_instance_request_concurrency` |
+| CPU/Memory | 8 CPU / 32GB | `terraform/cloud-run.tf` → `resources.limits` |
+| Max agents per container | 100 | `src/guardrails.ts` → `MAX_AGENTS` |
+| Session TTL | 4 hours | `src/guardrails.ts` → `SESSION_TTL_MS` |
 | Request timeout | 1 hour | `terraform/cloud-run.tf` → `timeout` |
 
-**Concurrency is low by design** — each agent is a heavy Claude CLI process. With 4 CPU and 8GB RAM, 2 concurrent requests (each potentially spawning agents) is a safe default.
+**High concurrency by design** — each agent is a Claude CLI process (~50-150MB RSS). With 8 CPU and 32GB RAM, the container supports up to 100 concurrent agents. Memory pressure monitoring (cgroup v2) rejects new agents at 85% container memory.
 
 **Min instances = 0** means cold starts. Set to 1 if you want instant responses (costs more).
 

@@ -165,6 +165,6 @@ npm start &
 ## Agent guardrails
 - Allowed tools: Bash, Edit, Write, Read, Glob, Grep, LS, TodoRead, TodoWrite, Task, WebFetch, WebSearch, NotebookEdit
 - No database access (no credentials injected, no IAM roles)
-- Max 20 concurrent agents per container
+- Max 100 concurrent agents per container
 - 4-hour session TTL
 - 100k char prompt limit

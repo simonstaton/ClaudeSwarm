@@ -4,7 +4,7 @@ import type { AuthenticatedRequest } from "./types";
 
 // Simple in-memory token bucket rate limiter
 const buckets = new Map<string, { tokens: number; lastRefill: number }>();
-const RATE_LIMIT = 60; // requests per minute
+const RATE_LIMIT = 120; // requests per minute (sized for high-concurrency agent workloads)
 const REFILL_INTERVAL_MS = 60_000;
 
 // Cleanup old rate limiter buckets to prevent memory leak

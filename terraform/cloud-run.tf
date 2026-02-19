@@ -16,15 +16,15 @@ resource "google_cloud_run_v2_service" "swarm" {
 
     # High concurrency: SSE streams + polling all need to hit the same instance.
     # With concurrency=2, Cloud Run spins up new instances with empty agent stores.
-    max_instance_request_concurrency = 250
+    max_instance_request_concurrency = 500
 
     containers {
       image = var.image
 
       resources {
         limits = {
-          cpu    = "4"
-          memory = "8Gi"
+          cpu    = "8"
+          memory = "32Gi"
         }
         # Keep CPU allocated between requests so agent processes keep running
         cpu_idle          = false

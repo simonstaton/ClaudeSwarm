@@ -23,7 +23,7 @@ export const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 export let MAX_PROMPT_LENGTH = 100_000;
 export let MAX_TURNS = 500;
-export let MAX_AGENTS = 20;
+export let MAX_AGENTS = 100;
 export let MAX_BATCH_SIZE = 10;
 export let SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
