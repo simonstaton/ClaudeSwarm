@@ -158,18 +158,28 @@ export function createAgentsRouter(
         return;
       }
 
-      // Save any attachments to the agent's workspace and append file refs to prompt.
-      // Normalize prompt to empty string so attachment-only messages don't produce
-      // a fullPrompt that starts with the "\n\n" separator from saveAttachments.
+      // Save any attachments to the agent's workspace. The returned prefix is
+      // placed BEFORE the user text so the LLM reads attached files first.
+      // promptText is passed separately so the terminal shows clean user text
+      // without the file-path instructions that are only meant for the LLM.
       const promptText = typeof prompt === "string" ? prompt : "";
       let fullPrompt = promptText;
+      let attachmentNames: string[] = [];
       if (Array.isArray(attachments) && attachments.length > 0) {
-        const suffix = agentManager.saveAttachments(agent.workspaceDir, attachments);
-        fullPrompt = promptText ? promptText + suffix : suffix.trimStart();
+        const { prefix, names } = agentManager.saveAttachments(agent.workspaceDir, attachments);
+        fullPrompt = promptText ? prefix + promptText : prefix;
+        attachmentNames = names;
       }
 
       logger.info("[message] Sending message to agent", { agentId, promptSnippet: fullPrompt.slice(0, 80) });
-      const { agent: updatedAgent, subscribe } = agentManager.message(agentId, fullPrompt, maxTurns, sessionId);
+      const { agent: updatedAgent, subscribe } = agentManager.message(
+        agentId,
+        fullPrompt,
+        maxTurns,
+        sessionId,
+        promptText,
+        attachmentNames,
+      );
       setupSSE(res, updatedAgent.id, subscribe);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to send message";

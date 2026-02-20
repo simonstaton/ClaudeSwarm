@@ -404,9 +404,12 @@ export class AgentManager {
     };
 
     let finalPrompt = opts.prompt;
+    let attachmentNames: string[] = [];
     if (opts.attachments && opts.attachments.length > 0) {
-      const suffix = this.workspace.saveAttachments(workspaceDir, opts.attachments);
-      finalPrompt = opts.prompt + suffix;
+      const { prefix, names } = this.workspace.saveAttachments(workspaceDir, opts.attachments);
+      // Prefix goes first so the LLM reads attached files before the user text.
+      finalPrompt = prefix + opts.prompt;
+      attachmentNames = names;
     }
 
     const args = this.buildClaudeArgs({ ...opts, prompt: finalPrompt }, model);
@@ -438,8 +441,14 @@ export class AgentManager {
     saveAgentState(agent);
 
     // Persist a user_prompt event so the initial prompt appears in the terminal
-    // on reconnect (the UI injects one client-side, but it's lost on refresh)
-    this.handleEvent(id, { type: "user_prompt", text: opts.prompt });
+    // on reconnect (the UI injects one client-side, but it's lost on refresh).
+    // Store original user text + attachment names (not finalPrompt which includes
+    // file-path instructions that are only meant for the LLM).
+    this.handleEvent(id, {
+      type: "user_prompt",
+      text: opts.prompt,
+      attachmentNames: attachmentNames.length > 0 ? attachmentNames : undefined,
+    });
 
     this.attachProcessHandlers(id, agentProc, proc);
 
@@ -452,7 +461,11 @@ export class AgentManager {
       }
     });
 
-    const userPromptEvent: StreamEvent = { type: "user_prompt", text: opts.prompt };
+    const userPromptEvent: StreamEvent = {
+      type: "user_prompt",
+      text: opts.prompt,
+      attachmentNames: attachmentNames.length > 0 ? attachmentNames : undefined,
+    };
     const subscribe = (listener: (event: StreamEvent) => void) => {
       agentProc.listeners.add(listener);
       // Send the user_prompt as the first event so it appears in the terminal
@@ -494,6 +507,10 @@ export class AgentManager {
     prompt: string,
     maxTurns?: number,
     targetSessionId?: string,
+    /** Clean user-visible text to display in the terminal (without file-path instructions). */
+    displayText?: string,
+    /** Names of attachments to show as chips in the terminal. */
+    attachmentNames?: string[],
   ): { agent: Agent; subscribe: (listener: (event: StreamEvent) => void) => () => void } {
     // Layer 1: Block messaging when kill switch is active
     if (this.killed) throw new Error("Kill switch is active - agent messaging is disabled");
@@ -528,8 +545,13 @@ export class AgentManager {
     agentProc.lineBuffer = "";
 
     // Persist a user_prompt event so the user's message appears in the terminal
-    // on reconnect (the UI injects one client-side, but it's lost on refresh)
-    this.handleEvent(id, { type: "user_prompt", text: prompt });
+    // on reconnect. Use displayText (clean user text) rather than the full prompt
+    // which may include file-path instructions intended only for the LLM.
+    this.handleEvent(id, {
+      type: "user_prompt",
+      text: displayText ?? prompt,
+      attachmentNames: attachmentNames && attachmentNames.length > 0 ? attachmentNames : undefined,
+    });
 
     // Ensure workspace exists (may have been lost after container restart for restored agents)
     this.workspace.ensureWorkspace(agentProc.agent.workspaceDir, agentProc.agent.name, id);
@@ -568,7 +590,11 @@ export class AgentManager {
       }
     });
 
-    const userPromptEvent: StreamEvent = { type: "user_prompt", text: prompt };
+    const userPromptEvent: StreamEvent = {
+      type: "user_prompt",
+      text: displayText ?? prompt,
+      attachmentNames: attachmentNames && attachmentNames.length > 0 ? attachmentNames : undefined,
+    };
     const subscribe = (listener: (event: StreamEvent) => void) => {
       agentProc.listeners.add(listener);
       // Send the user_prompt as the first event so it appears in the terminal
@@ -1729,9 +1755,9 @@ export class AgentManager {
     return args;
   }
 
-  /** Save attachments to the agent workspace and return a prompt suffix referencing them.
-   *  Delegates to WorkspaceManager. */
-  saveAttachments(workspaceDir: string, attachments: PromptAttachment[]): string {
+  /** Save attachments to the agent workspace.
+   *  Delegates to WorkspaceManager. Returns `{ prefix, names }`. */
+  saveAttachments(workspaceDir: string, attachments: PromptAttachment[]): { prefix: string; names: string[] } {
     return this.workspace.saveAttachments(workspaceDir, attachments);
   }
 

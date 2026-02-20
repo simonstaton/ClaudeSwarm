@@ -213,14 +213,25 @@ export class WorkspaceManager {
     }
   }
 
-  /** Save attachments to the agent workspace and return a prompt suffix referencing them. */
-  saveAttachments(workspaceDir: string, attachments: PromptAttachment[]): string {
-    if (attachments.length === 0) return "";
+  /** Save attachments to the agent workspace.
+   *
+   * Returns an object with:
+   * - `prefix`  – text to prepend to the user message so the LLM reads attached
+   *               files before forming its reply.
+   * - `names`   – display names of every saved attachment (for the UI).
+   *
+   * Placing the instruction *before* the user text ensures the model encounters
+   * it at the start of the turn and reliably calls the Read tool to view images.
+   */
+  saveAttachments(workspaceDir: string, attachments: PromptAttachment[]): { prefix: string; names: string[] } {
+    if (attachments.length === 0) return { prefix: "", names: [] };
 
     const attachDir = path.join(workspaceDir, ".attachments");
     mkdirSync(attachDir, { recursive: true });
 
-    const refs: string[] = [];
+    const imageLines: string[] = [];
+    const fileLines: string[] = [];
+    const names: string[] = [];
     const timestamp = Date.now();
 
     for (let i = 0; i < attachments.length; i++) {
@@ -228,19 +239,29 @@ export class WorkspaceManager {
       const safeName = att.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const filename = `${timestamp}-${i}-${safeName}`;
       const filePath = path.join(attachDir, filename);
+      names.push(att.name);
 
       if (att.type === "image" && att.data.startsWith("data:")) {
         // Strip data URL prefix and decode base64
         const base64 = att.data.replace(/^data:[^;]+;base64,/, "");
         writeFileSync(filePath, Buffer.from(base64, "base64"));
-        refs.push(`[Attached image: ${att.name}] - saved to ${filePath} (use the Read tool to view it)`);
+        imageLines.push(`- ${filePath}  (original name: ${att.name})`);
       } else if (att.type === "file") {
         writeFileSync(filePath, att.data, "utf-8");
-        refs.push(`[Attached file: ${att.name}] - saved to ${filePath} (use the Read tool to view it)`);
+        fileLines.push(`- ${filePath}  (original name: ${att.name})`);
       }
     }
 
-    return refs.length > 0 ? `\n\n${refs.join("\n")}` : "";
+    const parts: string[] = [];
+    if (imageLines.length > 0) {
+      parts.push(`Use your Read tool to view the following image(s) BEFORE responding:\n${imageLines.join("\n")}`);
+    }
+    if (fileLines.length > 0) {
+      parts.push(`The following file(s) have been attached:\n${fileLines.join("\n")}`);
+    }
+
+    const prefix = parts.length > 0 ? `${parts.join("\n\n")}\n\n` : "";
+    return { prefix, names };
   }
 
   buildEnv(agentId?: string): NodeJS.ProcessEnv {

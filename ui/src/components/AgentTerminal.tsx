@@ -224,13 +224,41 @@ function Block({ block }: { block: TerminalBlock }) {
     case "text":
       return <div className="terminal-line text-zinc-200 mb-2 leading-relaxed">{block.content}</div>;
 
-    case "user_prompt":
+    case "user_prompt": {
+      const names = block.meta?.attachmentNames as string[] | undefined;
       return (
         <div className="mt-3 mb-2 pt-2 border-t border-zinc-800">
           <div className="text-blue-400 text-sm font-medium mb-1">You</div>
-          <div className="terminal-line text-zinc-300 mb-2 leading-relaxed">{block.content}</div>
+          {block.content && <div className="terminal-line text-zinc-300 mb-1 leading-relaxed">{block.content}</div>}
+          {names && names.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {names.map((name, i) => (
+                <span
+                  key={`${i}-${name}`}
+                  className="inline-flex items-center gap-1 text-xs bg-zinc-800 border border-zinc-700 rounded px-2 py-0.5 text-zinc-400"
+                >
+                  <svg
+                    aria-hidden="true"
+                    className="w-3 h-3 shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                    />
+                  </svg>
+                  {name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       );
+    }
 
     case "tool_use": {
       const toolName = String(block.meta?.name || "tool");
@@ -354,7 +382,13 @@ export function parseEvents(events: StreamEvent[], startIdx = 0): TerminalBlock[
       }
 
       case "user_prompt": {
-        blocks.push({ id, kind: "user_prompt", content: String(event.text || "") });
+        const attachmentNames = Array.isArray(event.attachmentNames) ? event.attachmentNames : undefined;
+        blocks.push({
+          id,
+          kind: "user_prompt",
+          content: String(event.text || ""),
+          meta: attachmentNames ? { attachmentNames } : undefined,
+        });
         break;
       }
 

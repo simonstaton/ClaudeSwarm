@@ -114,9 +114,9 @@ describe("WorkspaceManager", () => {
   });
 
   describe("saveAttachments", () => {
-    it("returns empty string for no attachments", () => {
+    it("returns empty object for no attachments", () => {
       const result = wm.saveAttachments(TEST_WORKSPACE, []);
-      expect(result).toBe("");
+      expect(result).toEqual({ prefix: "", names: [] });
     });
 
     it("saves file attachments and returns prompt suffix", () => {
@@ -125,8 +125,10 @@ describe("WorkspaceManager", () => {
         { name: "readme.txt", type: "file", data: "Hello, world!", mime: "text/plain" },
       ]);
 
-      expect(result).toContain("[Attached file: readme.txt]");
-      expect(result).toContain(".attachments");
+      expect(result.names).toEqual(["readme.txt"]);
+      expect(result.prefix).toContain("The following file(s) have been attached:");
+      expect(result.prefix).toContain("readme.txt");
+      expect(result.prefix).toContain(".attachments");
 
       // Verify the file was actually written
       const attachDir = path.join(TEST_WORKSPACE, ".attachments");
@@ -140,7 +142,10 @@ describe("WorkspaceManager", () => {
         { name: "screenshot.png", type: "image", data: base64Data, mime: "image/png" },
       ]);
 
-      expect(result).toContain("[Attached image: screenshot.png]");
+      expect(result.names).toEqual(["screenshot.png"]);
+      expect(result.prefix).toContain("Use your Read tool to view the following image(s) BEFORE responding:");
+      expect(result.prefix).toContain("screenshot.png");
+      expect(result.prefix).toContain(".attachments");
     });
 
     it("sanitizes filenames", () => {
