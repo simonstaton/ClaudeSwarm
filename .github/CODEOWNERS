@@ -1,0 +1,17 @@
+# Default owner for everything
+* @simonstaton
+
+# Infrastructure
+/terraform/ @simonstaton
+
+# UI
+/ui/ @simonstaton
+
+# Server source
+/src/ @simonstaton
+
+# CI/CD
+/.github/ @simonstaton
+
+# Container
+/Dockerfile @simonstaton

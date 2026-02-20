@@ -16,9 +16,7 @@ jobs:
     name: Trivy Container Scan
     runs-on: ubuntu-latest
     permissions:
-      actions: read            # Required by codeql-action to read workflow run info
       contents: read
-      security-events: write   # Required for SARIF upload to GitHub Security tab
 
     steps:
       - name: Checkout
@@ -27,50 +25,9 @@ jobs:
       - name: Build Docker image
         run: docker build -t claude-swarm:${{ github.sha }} .
 
-      # SARIF report — uploaded to GitHub Security tab for inline annotations
-      - name: Run Trivy scan (SARIF)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: claude-swarm:${{ github.sha }}
-          format: sarif
-          output: trivy-results.sarif
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-          trivyignores: .trivyignore
-
-      - name: Upload SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        continue-on-error: true
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy-container-scan
-
-      # SARIF report — uploaded to GitHub Security tab for inline annotations
-      - name: Run Trivy scan (SARIF)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: claude-swarm:${{ github.sha }}
-          format: sarif
-          output: trivy-results.sarif
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-          trivyignores: .trivyignore
-
-      - name: Upload SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        continue-on-error: true
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy-container-scan
-
       # JSON report — full severity range, saved as CI artifact
       - name: Run Trivy scan (JSON report)
         uses: aquasecurity/trivy-action@0.28.0
-        if: always()
         with:
           image-ref: claude-swarm:${{ github.sha }}
           format: json
@@ -100,7 +57,5 @@ jobs:
         if: always()
         with:
           name: trivy-scan-report-${{ github.sha }}
-          path: |
-            trivy-results.sarif
-            trivy-results.json
+          path: trivy-results.json
           retention-days: 30
