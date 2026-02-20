@@ -46,6 +46,8 @@ export interface Agent {
     tokensIn: number;
     tokensOut: number;
     estimatedCost: number;
+    /** Cumulative total tokens (in+out) across all contexts, never reset by clear-context. */
+    totalTokensSpent: number;
   };
 }
 

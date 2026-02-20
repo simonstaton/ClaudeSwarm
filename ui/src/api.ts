@@ -76,6 +76,7 @@ export interface TopologyNode {
   parentId?: string;
   lastActivity: string;
   tokensUsed: number;
+  tokensSpent: number;
   estimatedCost: number;
 }
 
@@ -327,6 +328,15 @@ export function createApi(authFetch: AuthFetch) {
         const data = await res.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error || "Failed to resume agent");
       }
+    },
+
+    async clearAgentContext(id: string): Promise<{ ok: boolean; tokensCleared: number }> {
+      const res = await authFetch(`/api/agents/${id}/clear-context`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to clear agent context");
+      }
+      return res.json();
     },
 
     async readContext(filename: string): Promise<string> {

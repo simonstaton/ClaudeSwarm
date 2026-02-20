@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SwarmTopology, TopologyNode } from "../api";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Header } from "../components/Header";
 import { Sidebar } from "../components/Sidebar";
 import { useAgentPolling } from "../hooks/useAgentPolling";
@@ -9,7 +10,7 @@ import { useApi } from "../hooks/useApi";
 import { useKillSwitchContext } from "../killSwitch";
 
 const NODE_W = 200;
-const NODE_H = 96;
+const NODE_H = 110;
 const H_GAP = 60; // horizontal gap between siblings
 const V_GAP = 100; // vertical gap between depth levels
 const PADDING = 40;
@@ -127,7 +128,8 @@ function Tooltip({ node }: { node: TopologyNode }) {
     node.role ? `role: ${node.role}` : "",
     `model: ${node.model.split("-").slice(0, 3).join("-")}`,
     `depth: ${node.depth}`,
-    `tokens: ${formatTokens(node.tokensUsed)} · cost: ${formatCost(node.estimatedCost)}`,
+    `context: ${formatTokens(node.tokensUsed)} · spent: ${formatTokens(node.tokensSpent)}`,
+    `cost: ${formatCost(node.estimatedCost)}`,
     node.currentTask ? node.currentTask.slice(0, 36) : "",
   ].filter(Boolean);
 
@@ -141,7 +143,7 @@ function Tooltip({ node }: { node: TopologyNode }) {
       <rect x={tx} y={ty} width={tw} height={th} rx={6} fill="#18181b" stroke="#3f3f46" strokeWidth={1} />
       {lines.map((line, i) => (
         <text
-          key={line}
+          key={`tooltip-${line}`}
           x={tx + 10}
           y={ty + 14 + i * 16}
           fontSize={10}
@@ -163,6 +165,9 @@ export function GraphView() {
   const [topology, setTopology] = useState<SwarmTopology | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [clearingId, setClearingId] = useState<string | null>(null);
+  const [confirmClearId, setConfirmClearId] = useState<string | null>(null);
+  const [clearError, setClearError] = useState<string | null>(null);
 
   // Pan + zoom state
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -218,6 +223,25 @@ export function GraphView() {
     setOffset({ x: 0, y: 0 });
     setScale(1);
   }, []);
+
+  const handleClearContext = useCallback(
+    async (nodeId: string) => {
+      setConfirmClearId(null);
+      setClearingId(nodeId);
+      setClearError(null);
+      try {
+        await api.clearAgentContext(nodeId);
+        load();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to clear context";
+        setClearError(msg);
+        setTimeout(() => setClearError(null), 4000);
+      } finally {
+        setClearingId(null);
+      }
+    },
+    [api, load],
+  );
 
   if (error) {
     return (
@@ -354,13 +378,49 @@ export function GraphView() {
                     <text x={12} y={48} fontSize={10} fill="#71717a" fontFamily="sans-serif">
                       {taskLabel}
                     </text>
-                    {/* Cost / tokens */}
+                    {/* Context tokens + spent tokens */}
                     <text x={12} y={66} fontSize={9} fill="#52525b" fontFamily="monospace">
-                      {formatTokens(node.tokensUsed)} tokens
+                      {formatTokens(node.tokensUsed)} ctx
                     </text>
-                    <text x={12} y={82} fontSize={9} fill="#52525b" fontFamily="monospace">
-                      {formatCost(node.estimatedCost)}
+                    <text x={12} y={80} fontSize={9} fill="#52525b" fontFamily="monospace">
+                      {formatTokens(node.tokensSpent)} spent · {formatCost(node.estimatedCost)}
                     </text>
+                    {/* Clear context button (visible on hover, idle/restored only) */}
+                    {isHovered && (node.status === "idle" || node.status === "restored") && clearingId !== node.id && (
+                      <g
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmClearId(node.id);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setConfirmClearId(node.id);
+                          }
+                        }}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <rect x={NODE_W - 56} y={90} width={44} height={16} rx={3} fill="#52525b" opacity={0.8} />
+                        <text
+                          x={NODE_W - 34}
+                          y={101}
+                          fontSize={8}
+                          fill="#e4e4e7"
+                          fontFamily="monospace"
+                          textAnchor="middle"
+                        >
+                          clear
+                        </text>
+                      </g>
+                    )}
+                    {clearingId === node.id && (
+                      <text x={NODE_W - 56} y={101} fontSize={8} fill="#a1a1aa" fontFamily="monospace">
+                        clearing…
+                      </text>
+                    )}
                   </g>
                 );
               })}
@@ -378,8 +438,29 @@ export function GraphView() {
                 })()}
             </g>
           </svg>
+
+          {/* Error toast for clear context failures */}
+          {clearError && (
+            <div className="absolute bottom-3 right-3 z-20 bg-red-900/90 border border-red-700 rounded-lg px-4 py-2 text-xs text-red-200 max-w-xs">
+              {clearError}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Confirm dialog for clearing context */}
+      <ConfirmDialog
+        open={confirmClearId !== null}
+        title="Clear agent context?"
+        description="This will reset the agent's context window and start a fresh session. Billing tokens (tokens spent) will not be affected."
+        confirmLabel="Clear context"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={() => {
+          if (confirmClearId) handleClearContext(confirmClearId);
+        }}
+        onCancel={() => setConfirmClearId(null)}
+      />
     </div>
   );
 }

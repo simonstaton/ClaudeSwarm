@@ -61,6 +61,7 @@ export function createAgentsRouter(
       parentId: a.parentId,
       lastActivity: a.lastActivity,
       tokensUsed: (a.usage?.tokensIn ?? 0) + (a.usage?.tokensOut ?? 0),
+      tokensSpent: a.usage?.totalTokensSpent ?? (a.usage?.tokensIn ?? 0) + (a.usage?.tokensOut ?? 0),
       estimatedCost: a.usage?.estimatedCost ?? 0,
     }));
     const edges = agents.filter((a) => a.parentId).map((a) => ({ source: a.parentId as string, target: a.id }));
@@ -346,6 +347,23 @@ export function createAgentsRouter(
     } catch (err: unknown) {
       logger.error("[agents] Error destroying agent", { agentId: id, error: String(err) });
       res.status(500).json({ error: "Failed to destroy agent" });
+    }
+  });
+
+  // Clear agent context (reset session, keep billing counter)
+  router.post("/api/agents/:id/clear-context", async (req: Request, res: Response) => {
+    // Agents must not clear other agents' context
+    if ((req as AuthenticatedRequest).user?.sub === "agent-service") {
+      res.status(403).json({ error: "Agent service tokens cannot clear agent context" });
+      return;
+    }
+    const id = param(req.params.id);
+    const result = await agentManager.clearContext(id);
+    if (result.ok) {
+      res.json({ ok: true, tokensCleared: result.tokensCleared });
+    } else {
+      const httpStatus = result.status ? 409 : 404;
+      res.status(httpStatus).json({ error: result.error });
     }
   });
 

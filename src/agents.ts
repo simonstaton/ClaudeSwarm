@@ -499,12 +499,12 @@ export class AgentManager {
     if (this.killed) throw new Error("Kill switch is active - agent messaging is disabled");
     const agentProc = this.agents.get(id);
     if (!agentProc) throw new Error("Agent not found");
-    if (!agentProc.agent.claudeSessionId) throw new Error("Agent has no session to resume");
     if (agentProc.agent.status === "killing")
       throw new Error("Agent is shutting down a previous process, try again shortly");
 
-    // Use targetSessionId if provided, otherwise use the agent's main session
-    const resumeId = targetSessionId || agentProc.agent.claudeSessionId;
+    // Use targetSessionId if provided, otherwise use the agent's main session.
+    // After clearContext(), claudeSessionId is undefined — start a fresh session (no --resume).
+    const resumeId = targetSessionId || agentProc.agent.claudeSessionId || undefined;
 
     const model = agentProc.agent.model;
     const args = this.buildClaudeArgs(
@@ -627,10 +627,11 @@ export class AgentManager {
     if (!agentProc) return false;
     if (this.delivering.has(id)) return false;
     const { status } = agentProc.agent;
-    // Only deliver to agents that aren't actively running and have a session to resume.
+    // Only deliver to agents that aren't actively running and have a session to resume
+    // (or had their context cleared, in which case a fresh session starts).
     // Stalled agents also receive deliveries to attempt recovery.
     // Disconnected agents are not auto-delivered to - they must be manually destroyed.
-    if ((status === "idle" || status === "restored" || status === "stalled") && !!agentProc.agent.claudeSessionId) {
+    if (status === "idle" || status === "restored" || status === "stalled") {
       this.delivering.add(id);
       return true;
     }
@@ -735,6 +736,79 @@ export class AgentManager {
       message: "Agent resumed via SIGCONT.",
     });
     return true;
+  }
+
+  /** Clear an agent's context window, resetting session so the next message starts fresh.
+   *  Only allowed when the agent is idle or restored. Uses lifecycle locks to prevent races.
+   *  Does NOT reset totalTokensSpent (cumulative billing counter). */
+  async clearContext(
+    id: string,
+  ): Promise<{ ok: true; tokensCleared: number } | { ok: false; error: string; status?: string }> {
+    const agentProc = this.agents.get(id);
+    if (!agentProc) return { ok: false, error: "Agent not found" };
+
+    const { agent } = agentProc;
+    const allowedStatuses: string[] = ["idle", "restored"];
+    if (!allowedStatuses.includes(agent.status)) {
+      return {
+        ok: false,
+        error: `Agent must be idle to clear context (current: ${agent.status})`,
+        status: agent.status,
+      };
+    }
+
+    const prevLock = this.lifecycleLocks.get(id) ?? Promise.resolve();
+    const clearOp = prevLock.then(async () => {
+      // Re-check status after acquiring lock (may have changed while waiting)
+      if (!allowedStatuses.includes(agent.status)) {
+        return { ok: false as const, error: `Agent status changed to ${agent.status}`, status: agent.status };
+      }
+
+      const tokensCleared = (agent.usage?.tokensIn ?? 0) + (agent.usage?.tokensOut ?? 0);
+
+      // Backfill totalTokensSpent for pre-existing agents that lack the field
+      if (agent.usage && agent.usage.totalTokensSpent == null) {
+        agent.usage.totalTokensSpent = (agent.usage.tokensIn ?? 0) + (agent.usage.tokensOut ?? 0);
+      }
+
+      // Reset context window counters (but NOT totalTokensSpent or estimatedCost)
+      if (agent.usage) {
+        agent.usage.tokensIn = 0;
+        agent.usage.tokensOut = 0;
+      }
+
+      // Clear session so next message() spawns a fresh CLI session (no --resume)
+      agent.claudeSessionId = undefined;
+      agent.lastActivity = new Date().toISOString();
+      saveAgentState(agent);
+      this.upsertCostTracker(agentProc);
+
+      // Clear persisted events (old context is irrelevant after reset)
+      try {
+        await unlink(path.join(EVENTS_DIR, `${id}.jsonl`));
+      } catch {
+        // File may not exist — that's fine
+      }
+
+      // Reset in-memory event state
+      agentProc.eventBuffer = [];
+      agentProc.eventBufferTotal = 0;
+      agentProc.seenMessageIds.clear();
+
+      this.handleEvent(id, {
+        type: "system",
+        subtype: "context_cleared",
+        message: `Context cleared (${tokensCleared} tokens). Next message starts a fresh session.`,
+      });
+
+      return { ok: true as const, tokensCleared };
+    });
+
+    this.lifecycleLocks.set(
+      id,
+      clearOp.then(() => {}).catch(() => {}),
+    );
+    return clearOp;
   }
 
   async getEvents(id: string): Promise<StreamEvent[]> {
@@ -842,7 +916,7 @@ export class AgentManager {
    *  responsible for clearing SQLite via costTracker.reset() if needed. */
   resetAllUsage(): void {
     for (const agentProc of this.agents.values()) {
-      agentProc.agent.usage = { tokensIn: 0, tokensOut: 0, estimatedCost: 0 };
+      agentProc.agent.usage = { tokensIn: 0, tokensOut: 0, estimatedCost: 0, totalTokensSpent: 0 };
       saveAgentState(agentProc.agent);
     }
   }
@@ -1282,11 +1356,12 @@ export class AgentManager {
         const cost = AgentManager.estimateCost(agentProc.agent.model, usage);
 
         if (tokensIn > 0 || tokensOut > 0) {
-          const prev = agentProc.agent.usage ?? { tokensIn: 0, tokensOut: 0, estimatedCost: 0 };
+          const prev = agentProc.agent.usage ?? { tokensIn: 0, tokensOut: 0, estimatedCost: 0, totalTokensSpent: 0 };
           agentProc.agent.usage = {
             tokensIn: prev.tokensIn + tokensIn,
             tokensOut: prev.tokensOut + tokensOut,
             estimatedCost: prev.estimatedCost + cost,
+            totalTokensSpent: (prev.totalTokensSpent ?? 0) + tokensIn + tokensOut,
           };
           saveAgentState(agentProc.agent);
           this.upsertCostTracker(agentProc);
@@ -1301,7 +1376,10 @@ export class AgentManager {
       const tokensIn = usage?.input_tokens ?? 0;
       const tokensOut = usage?.output_tokens ?? 0;
       if (tokensIn > 0 || tokensOut > 0 || totalCost > 0) {
-        const prev = agentProc.agent.usage ?? { tokensIn: 0, tokensOut: 0, estimatedCost: 0 };
+        const prev = agentProc.agent.usage ?? { tokensIn: 0, tokensOut: 0, estimatedCost: 0, totalTokensSpent: 0 };
+        // Compute delta for totalTokensSpent: result events report cumulative input tokens
+        // (full context window), so only count the incremental difference to avoid double-counting.
+        const inputDelta = tokensIn > prev.tokensIn ? tokensIn - prev.tokensIn : 0;
         agentProc.agent.usage = {
           // tokensIn is NOT accumulated: each result event's input_tokens already contains
           // the full conversation context, so summing across turns massively overcounts.
@@ -1309,6 +1387,7 @@ export class AgentManager {
           tokensIn: tokensIn > 0 ? tokensIn : prev.tokensIn,
           tokensOut: prev.tokensOut + tokensOut,
           estimatedCost: prev.estimatedCost + totalCost,
+          totalTokensSpent: (prev.totalTokensSpent ?? 0) + inputDelta + tokensOut,
         };
         saveAgentState(agentProc.agent);
         this.upsertCostTracker(agentProc);
