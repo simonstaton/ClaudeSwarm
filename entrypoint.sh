@@ -123,9 +123,16 @@ mkdir -p /shared-context
 
 # ── 5. Init persistent storage if GCS FUSE is mounted ───────────────────────
 if [ -d /persistent ] && mountpoint -q /persistent 2>/dev/null; then
-  mkdir -p /persistent/repos /persistent/tools /persistent/shared-context /persistent/npm-cache
+  mkdir -p /persistent/repos /persistent/tools /persistent/shared-context \
+    /persistent/npm-cache /persistent/pnpm-store
   export SHARED_CONTEXT_DIR=/persistent/shared-context
   echo "Persistent storage (GCS FUSE) active"
+
+  # Configure pnpm to use the persistent shared content-addressable store.
+  # This means all agents share the same package store, so identical packages
+  # are downloaded once and hard-linked into each project's node_modules.
+  pnpm config set store-dir /persistent/pnpm-store --global 2>/dev/null \
+    && echo "pnpm store configured at /persistent/pnpm-store" || true
 
   # NOTE: /persistent/tools/ auto-shimming has been removed (Layer 7 security hardening).
   # Agents could write malicious scripts to /persistent/tools/ that would be auto-executed

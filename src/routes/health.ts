@@ -1,6 +1,7 @@
 import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
 import { exchangeKeyForToken } from "../auth";
+import { hasPersistentCache, isCacheReady } from "../dep-cache";
 import { MAX_AGENTS } from "../guardrails";
 import { getContainerMemoryUsage } from "../utils/memory";
 
@@ -25,6 +26,10 @@ export function createHealthRouter(agentManager: AgentManager, memoryLimitBytes:
         heapTotalMB: Math.round(heapTotal / 1024 / 1024),
         limitMB: Math.round(memoryLimitBytes / 1024 / 1024),
         pressurePct: Math.round((containerBytes / memoryLimitBytes) * 100),
+      },
+      depCache: {
+        persistent: hasPersistentCache(),
+        ready: isCacheReady(),
       },
     });
   });

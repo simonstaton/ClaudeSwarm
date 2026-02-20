@@ -55,8 +55,10 @@ RUN npm install -g pnpm
 # Create non-root user
 RUN addgroup -S agent && adduser -S agent -G agent
 
-# Set up directories
-RUN mkdir -p /home/agent/.claude /shared-context /persistent/repos /persistent/tools /persistent/shared-context \
+# Set up directories (includes dep cache dirs for npm/pnpm)
+RUN mkdir -p /home/agent/.claude /shared-context \
+  /persistent/repos /persistent/tools /persistent/shared-context \
+  /persistent/npm-cache /persistent/pnpm-store \
   && chown -R agent:agent /home/agent /shared-context /persistent
 
 USER agent

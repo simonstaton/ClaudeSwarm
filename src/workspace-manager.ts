@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { generateServiceToken } from "./auth";
+import { getDepCacheEnv } from "./dep-cache";
 import { generateWorkspaceClaudeMd } from "./templates/workspace-claude-md";
 import type { Agent, PromptAttachment } from "./types";
 import { errorMessage } from "./types";
@@ -277,15 +278,16 @@ export class WorkspaceManager {
       "CLAUDE_HOME",
       // Shared context
       "SHARED_CONTEXT_DIR",
-      // npm cache (persistent across sessions)
+      // npm/pnpm cache (persistent across sessions - may be set by dep-cache)
       "npm_config_cache",
+      "npm_config_store_dir",
     ];
 
     const env: NodeJS.ProcessEnv = {
       SHELL: "/bin/sh",
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       AGENT_AUTH_TOKEN: generateServiceToken(agentId),
-      ...(existsSync("/persistent/npm-cache") && { npm_config_cache: "/persistent/npm-cache" }),
+      ...getDepCacheEnv(),
     };
 
     for (const key of ALLOWED_ENV_KEYS) {

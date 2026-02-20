@@ -6,6 +6,7 @@ import { AgentManager } from "./src/agents";
 import { authMiddleware } from "./src/auth";
 import { corsMiddleware } from "./src/cors";
 import { CostTracker } from "./src/cost-tracker";
+import { initDepCache } from "./src/dep-cache";
 import { isKilled, loadPersistedState, startGcsKillSwitchPoll } from "./src/kill-switch";
 import { MessageBus } from "./src/messages";
 import { Orchestrator } from "./src/orchestrator";
@@ -494,6 +495,7 @@ async function start() {
 
     cleanupStaleState();
     cleanupOrphanedProcesses();
+    initDepCache();
 
     agentManager.restoreAgents();
     cleanupStaleWorkspaces(agentManager);
