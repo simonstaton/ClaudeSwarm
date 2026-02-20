@@ -12,6 +12,7 @@ export const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
   destroying: "error",
   paused: "warning",
   stalled: "error",
+  disconnected: "default",
 };
 
 export const STATUS_LABELS: Record<string, string> = {
@@ -24,6 +25,7 @@ export const STATUS_LABELS: Record<string, string> = {
   destroying: "Destroying",
   paused: "Paused",
   stalled: "Stalled",
+  disconnected: "Disconnected",
 };
 
 export const TASK_STATUS_LABELS: Record<string, string> = {

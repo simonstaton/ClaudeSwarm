@@ -190,7 +190,14 @@ export class AgentManager {
       // Recreate workspace directory, symlinks, and token file after container restart
       this.workspace.ensureWorkspace(agent.workspaceDir, agent.name, agent.id);
 
-      agent.status = "restored";
+      // Zombie detection: any agent that had an active or pending process is now
+      // disconnected because the process is gone after a container restart.
+      // Only the terminal error state is preserved as-is.
+      if (agent.status !== "error") {
+        agent.status = "disconnected";
+        saveAgentState(agent);
+      }
+
       const agentProc: AgentProcess = {
         agent,
         proc: null,
@@ -206,7 +213,7 @@ export class AgentManager {
         eventBufferTotal: 0,
       };
       this.agents.set(agent.id, agentProc);
-      console.log(`[restore] Restored agent ${agent.name} (${agent.id.slice(0, 8)})`);
+      console.log(`[restore] Restored agent ${agent.name} (${agent.id.slice(0, 8)}) — status: ${agent.status}`);
     }
   }
 
@@ -495,7 +502,11 @@ export class AgentManager {
     const { status } = agentProc.agent;
     // Only deliver to agents that aren't actively running and have a session to resume.
     // Stalled agents also receive deliveries to attempt recovery.
-    if ((status === "idle" || status === "restored" || status === "stalled") && !!agentProc.agent.claudeSessionId) {
+    // Disconnected agents are not auto-delivered to - they must be manually destroyed.
+    if (
+      (status === "idle" || status === "restored" || status === "stalled") &&
+      !!agentProc.agent.claudeSessionId
+    ) {
       this.delivering.add(id);
       return true;
     }
@@ -1359,9 +1370,15 @@ export class AgentManager {
       const { agent, proc } = agentProc;
 
       // Skip agents with active lifecycle locks - they're in the middle of
-      // a message() or destroy() operation. Also skip paused agents.
+      // a message() or destroy() operation. Also skip paused and disconnected agents.
       if (this.lifecycleLocks.has(id)) continue;
-      if (agent.status === "destroying" || agent.status === "killing" || agent.status === "paused") continue;
+      if (
+        agent.status === "destroying" ||
+        agent.status === "killing" ||
+        agent.status === "paused" ||
+        agent.status === "disconnected"
+      )
+        continue;
 
       // 1. Dead process detection: exitCode is set when the process has exited.
       //    proc.killed is unreliable (only set if WE killed it).

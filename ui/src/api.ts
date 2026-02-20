@@ -3,7 +3,17 @@
 export interface Agent {
   id: string;
   name: string;
-  status: "starting" | "running" | "idle" | "error" | "restored" | "killing" | "destroying" | "paused" | "stalled";
+  status:
+    | "starting"
+    | "running"
+    | "idle"
+    | "error"
+    | "restored"
+    | "killing"
+    | "destroying"
+    | "paused"
+    | "stalled"
+    | "disconnected";
   workspaceDir: string;
   claudeSessionId?: string;
   createdAt: string;
@@ -47,7 +57,17 @@ export interface StreamEvent {
 export interface TopologyNode {
   id: string;
   name: string;
-  status: "starting" | "running" | "idle" | "error" | "restored" | "killing" | "destroying" | "paused" | "stalled";
+  status:
+    | "starting"
+    | "running"
+    | "idle"
+    | "error"
+    | "restored"
+    | "killing"
+    | "destroying"
+    | "paused"
+    | "stalled"
+    | "disconnected";
   role?: string;
   model: string;
   depth: number;

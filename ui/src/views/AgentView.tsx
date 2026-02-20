@@ -132,7 +132,9 @@ export function AgentView({ agentId }: { agentId: string }) {
     }
   };
 
-  const canStop = agent && ["running", "idle", "restored", "error", "stalled", "paused"].includes(agent.status);
+  const isDisconnected = agent?.status === "disconnected";
+  const canStop =
+    agent && ["running", "idle", "restored", "error", "stalled", "paused", "disconnected"].includes(agent.status);
   const isErrored = agent?.status === "error";
 
   const handleSendMessage = (prompt: string, attachments?: Attachment[]) => {
@@ -217,6 +219,7 @@ export function AgentView({ agentId }: { agentId: string }) {
 
   const getPlaceholder = () => {
     if (agent?.status === "error") return "Agent errored";
+    if (agent?.status === "disconnected") return "Agent disconnected after server restart — dismiss to remove";
     if (agent?.status === "restored") return "Agent restored from crash - send a message to resume...";
     if (agent?.status === "stalled") return "Agent appears stalled - send a message to attempt recovery...";
     if (agent?.status === "paused") return "Agent is paused - resume to continue...";
@@ -240,13 +243,15 @@ export function AgentView({ agentId }: { agentId: string }) {
         open={showStopConfirm}
         onConfirm={handleStopAgent}
         onCancel={() => setShowStopConfirm(false)}
-        title={isErrored ? "Destroy this agent?" : "Stop this agent?"}
+        title={isDisconnected ? "Dismiss this agent?" : isErrored ? "Destroy this agent?" : "Stop this agent?"}
         description={
-          isErrored
-            ? "The errored agent will be cleaned up and removed."
-            : "The agent process will be terminated. Any in-progress work may be lost."
+          isDisconnected
+            ? "The agent lost its process after a server restart. Dismissing will remove it permanently."
+            : isErrored
+              ? "The errored agent will be cleaned up and removed."
+              : "The agent process will be terminated. Any in-progress work may be lost."
         }
-        confirmLabel={isErrored ? "Destroy Agent" : "Stop Agent"}
+        confirmLabel={isDisconnected ? "Dismiss Agent" : isErrored ? "Destroy Agent" : "Stop Agent"}
         variant="destructive"
       />
       <div className="flex flex-1 overflow-hidden">
@@ -350,7 +355,13 @@ export function AgentView({ agentId }: { agentId: string }) {
                   onClick={() => setShowStopConfirm(true)}
                   disabled={isStopping}
                 >
-                  {isStopping ? "Stopping..." : isErrored ? "Destroy Agent" : "Stop Agent"}
+                  {isStopping
+                    ? "Stopping..."
+                    : isDisconnected
+                      ? "Dismiss Agent"
+                      : isErrored
+                        ? "Destroy Agent"
+                        : "Stop Agent"}
                 </Button>
               )}
             </div>
@@ -358,6 +369,19 @@ export function AgentView({ agentId }: { agentId: string }) {
 
           {/* Metadata panel */}
           {id && <AgentMetadataPanel agentId={id} />}
+
+          {/* Disconnected warning banner */}
+          {agent?.status === "disconnected" && (
+            <div className="px-4 py-2 bg-zinc-800/60 border-b border-zinc-700/50 text-zinc-400 text-xs flex items-center justify-between gap-2">
+              <span>
+                This agent lost its backing process after a server restart. It cannot be resumed. Dismiss it to remove
+                it from the list.
+              </span>
+              <Button variant="tertiaryDestructive" size="24" onClick={() => setShowStopConfirm(true)}>
+                Dismiss Agent
+              </Button>
+            </div>
+          )}
 
           {/* Stalled warning banner */}
           {agent?.status === "stalled" && (
@@ -390,7 +414,7 @@ export function AgentView({ agentId }: { agentId: string }) {
           {/* Input */}
           <PromptInput
             onSubmit={handleSendMessage}
-            disabled={!agent || agent.status === "error" || agent.status === "paused"}
+            disabled={!agent || agent.status === "error" || agent.status === "paused" || agent.status === "disconnected"}
             placeholder={getPlaceholder()}
             onSearchFiles={handleSearchFiles}
             onSlashCommand={handleSlashCommand}

@@ -10,7 +10,8 @@ export type AgentStatus =
   | "killing"
   | "destroying"
   | "paused"
-  | "stalled";
+  | "stalled"
+  | "disconnected";
 
 export interface AgentUsage {
   tokensIn: number;
