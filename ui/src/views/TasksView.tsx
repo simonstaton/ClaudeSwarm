@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@fanvue/ui";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { OrchestratorEvent, TaskNode, TaskPriority, TaskStatus, TaskSummary } from "../api";
 import { Header } from "../components/Header";
 import { Sidebar } from "../components/Sidebar";
@@ -12,10 +12,66 @@ import { useKillSwitchContext } from "../killSwitch";
 
 const ALL_STATUSES: TaskStatus[] = ["pending", "assigned", "running", "completed", "failed", "blocked", "cancelled"];
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+function Tooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  const [visible, setVisible] = useState(false);
+  const tooltipId = useId();
+  return (
+    <span
+      className="relative inline-flex"
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+      onFocus={() => setVisible(true)}
+      onBlur={() => setVisible(false)}
+    >
+      {children}
+      <span
+        id={tooltipId}
+        role="tooltip"
+        className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-zinc-200 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg w-56 text-center whitespace-normal z-50 transition-opacity ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      >
+        {text}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800" aria-hidden="true" />
+      </span>
+    </span>
+  );
+}
+
+function InfoTooltip({ text }: { text: string }) {
+  const tooltipId = useId();
+  const [visible, setVisible] = useState(false);
+  return (
+    <span className="relative inline-flex items-center ml-1">
+      <button
+        type="button"
+        aria-label="More information"
+        aria-describedby={tooltipId}
+        onMouseEnter={() => setVisible(true)}
+        onMouseLeave={() => setVisible(false)}
+        onFocus={() => setVisible(true)}
+        onBlur={() => setVisible(false)}
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-zinc-700 text-zinc-400 text-[10px] font-semibold cursor-help leading-none hover:bg-zinc-600 hover:text-zinc-300 focus-visible:ring-1 focus-visible:ring-zinc-500 focus-visible:outline-none transition-colors"
+      >
+        i
+      </button>
+      <span
+        id={tooltipId}
+        role="tooltip"
+        className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-zinc-200 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg w-56 text-center whitespace-normal z-50 transition-opacity ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      >
+        {text}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800" aria-hidden="true" />
+      </span>
+    </span>
+  );
+}
+
+function StatCard({ label, value, color, tooltip }: { label: string; value: number; color: string; tooltip?: string }) {
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 min-w-[120px]">
-      <p className="text-xs text-zinc-500 uppercase tracking-wider">{label}</p>
+      <p className="text-xs text-zinc-500 uppercase tracking-wider flex items-center">
+        {label}
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </p>
       <p className={`text-2xl font-semibold mt-1 ${color}`}>{value}</p>
     </div>
   );
@@ -176,13 +232,15 @@ function TaskDetailPanel({
           <div className="flex items-center gap-2 pt-1">
             {(task.status === "pending" || task.status === "blocked") && agents.length > 0 && (
               <div className="flex items-center gap-2">
+                <label htmlFor={`assign-select-${task.id}`} className="text-xs text-zinc-500">Assign to agent:</label>
                 <select
+                  id={`assign-select-${task.id}`}
                   value={assignAgentId}
                   onChange={(e) => setAssignAgentId(e.target.value)}
                   disabled={isBusy}
                   className="px-2 py-1 text-xs bg-zinc-800 border border-zinc-700 rounded text-zinc-300 disabled:opacity-50"
                 >
-                  <option value="">Assign to...</option>
+                  <option value="">Select an agent...</option>
                   {agents.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name}
@@ -407,22 +465,26 @@ export function TasksView() {
         <main id="main-content" className="flex-1 overflow-y-auto p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Tasks</h2>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCreate((s) => !s)}
-                className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
-              >
-                {showCreate ? "Cancel" : "Create Task"}
-              </button>
-              <button
-                type="button"
-                onClick={handleTriggerAssignment}
-                disabled={busyAction === "triggerAssign"}
-                className="px-3 py-1.5 text-sm bg-zinc-700 hover:bg-zinc-600 text-zinc-200 rounded transition-colors disabled:opacity-50"
-              >
-                {busyAction === "triggerAssign" ? "Assigning..." : "Trigger Assignment"}
-              </button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreate((s) => !s)}
+                  className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
+                >
+                  {showCreate ? "Cancel" : "+ New Task"}
+                </button>
+                <Tooltip text="Automatically matches pending tasks with idle agents. No effect if no tasks are pending or agents available.">
+                  <button
+                    type="button"
+                    onClick={handleTriggerAssignment}
+                    disabled={busyAction === "triggerAssign"}
+                    className="px-3 py-1.5 text-sm bg-zinc-700 hover:bg-zinc-600 text-zinc-200 rounded transition-colors disabled:opacity-50"
+                  >
+                    {busyAction === "triggerAssign" ? "Assigning..." : "Auto-Assign"}
+                  </button>
+                </Tooltip>
+              </div>
               <button
                 type="button"
                 onClick={handleClearAll}
@@ -434,14 +496,18 @@ export function TasksView() {
             </div>
           </div>
 
-          <details className="bg-zinc-900 border border-zinc-800 rounded-lg">
-            <summary className="px-4 py-3 text-sm text-zinc-400 cursor-pointer hover:text-zinc-200">
-              When to use the task queue
+          <details className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden group" open>
+            <summary className="px-4 py-3 text-sm text-zinc-400 cursor-pointer hover:text-zinc-200 flex items-center gap-2 select-none">
+              <svg className="w-4 h-4 text-zinc-500 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              <span className="font-medium text-zinc-300">How does the task queue work?</span>
+              <span className="text-xs text-zinc-600 ml-auto hidden group-open:inline">Collapse</span>
+              <span className="text-xs text-zinc-600 ml-auto group-open:hidden">Expand</span>
             </summary>
-            <div className="px-4 pb-3 space-y-2 text-sm text-zinc-400">
+            <div className="px-4 pb-3 space-y-2 text-sm text-zinc-400 border-t border-zinc-800 pt-3">
               <p>
-                The task queue lets you define work items that agents pick up and execute automatically. Use it when you
-                want structured, trackable work — especially across multiple agents or with dependencies between steps.
+                The task queue lets you define work items that agents pick up and execute automatically. Create tasks here,
+                then either manually assign them to agents or click <strong className="text-zinc-300">Auto-Assign</strong> to
+                let the orchestrator match pending tasks with available agents.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div>
@@ -535,14 +601,15 @@ export function TasksView() {
                 label="Active"
                 value={summary.byStatus.running + summary.byStatus.assigned}
                 color="text-green-400"
+                tooltip="Tasks currently running or assigned to an agent"
               />
-              <StatCard label="Pending" value={summary.byStatus.pending} color="text-zinc-400" />
+              <StatCard label="Pending" value={summary.byStatus.pending} color="text-zinc-400" tooltip="Tasks waiting to be assigned to an agent" />
               <StatCard label="Completed" value={summary.byStatus.completed} color="text-blue-400" />
               {summary.byStatus.failed > 0 && (
-                <StatCard label="Failed" value={summary.byStatus.failed} color="text-red-400" />
+                <StatCard label="Failed" value={summary.byStatus.failed} color="text-red-400" tooltip="Tasks that errored out. Click a task to retry." />
               )}
               {summary.byStatus.blocked > 0 && (
-                <StatCard label="Blocked" value={summary.byStatus.blocked} color="text-amber-400" />
+                <StatCard label="Blocked" value={summary.byStatus.blocked} color="text-amber-400" tooltip="Tasks waiting on dependencies to complete first" />
               )}
             </div>
           )}
@@ -581,8 +648,8 @@ export function TasksView() {
                   <th className="px-4 py-2.5">Title</th>
                   <th className="px-4 py-2.5 w-24">Status</th>
                   <th className="px-4 py-2.5 w-20">Priority</th>
-                  <th className="px-4 py-2.5 w-28">Owner</th>
-                  <th className="px-4 py-2.5 w-16">Deps</th>
+                  <th className="px-4 py-2.5 w-28" title="The agent currently assigned to this task">Owner</th>
+                  <th className="px-4 py-2.5 w-16" title="Number of tasks this depends on (must complete first)">Deps</th>
                   <th className="px-4 py-2.5 w-24">Created</th>
                   <th className="px-4 py-2.5 w-20">Actions</th>
                 </tr>
@@ -590,8 +657,19 @@ export function TasksView() {
               <tbody>
                 {tasks.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
-                      {statusFilter ? `No ${statusFilter} tasks` : "No tasks yet"}
+                    <td colSpan={7} className="px-4 py-10 text-center">
+                      {statusFilter ? (
+                        <span className="text-zinc-500">No {statusFilter} tasks</span>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-zinc-400">No tasks in the queue</p>
+                          <p className="text-xs text-zinc-600">
+                            Click <strong className="text-zinc-400">+ New Task</strong> to create one, or use the{" "}
+                            <strong className="text-zinc-400">Auto-Assign</strong> button after adding tasks to
+                            automatically distribute them to idle agents.
+                          </p>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -616,7 +694,10 @@ export function TasksView() {
                         }`}
                       >
                         <td className="px-4 py-2.5 text-zinc-200 truncate max-w-[300px]" title={task.title}>
-                          {task.title}
+                          <span className="flex items-center gap-1.5">
+                            <svg className={`w-3 h-3 text-zinc-600 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                            {task.title}
+                          </span>
                         </td>
                         <td className="px-4 py-2.5">
                           <Badge variant={TASK_STATUS_BADGE_VARIANT[task.status] || "default"}>
