@@ -96,16 +96,21 @@ Open `http://localhost:8080` (note the different port).
 | Feature | Details |
 |---------|---------|
 | **Multi-agent orchestration** | Up to 100 concurrent agents, each with isolated `/tmp/workspace-{uuid}` and full Claude Code capabilities |
-| **Real-time streaming UI** | React SPA with SSE streaming, live terminal output, tool use visualization, cost-per-turn stats |
-| **Swarm graph visualization** | Interactive SVG tree showing parent-child topology, color-coded by status, with hover tooltips |
+| **Real-time streaming UI** | Next.js App Router UI with SSE streaming, live terminal output, tool use visualization, cost-per-turn stats |
+| **Task graph + orchestrator** | Structured world model with Plan-Execute-Observe loop, capability-aware routing, and inter-agent contracts |
+| **Swarm graph visualization** | Interactive SVG tree showing parent-child topology, color-coded by status, with token usage on each node |
 | **Cost tracking** | Per-agent token counts and USD cost estimates, summary dashboard, per-model pricing (Opus/Sonnet/Haiku) |
+| **Pause and resume** | Pause any running agent mid-task and resume it later. Process is kept alive, context preserved |
+| **Confidence grading** | Agents self-grade their fixes with a confidence score, surfaced in the UI for prioritized review |
+| **Attachment support** | Send files to agents alongside prompts, or attach files without any text prompt |
+| **Cron scheduler** | Persistent wake-on-alert scheduler: agents can register jobs that re-trigger them on a schedule |
 | **Inter-agent messaging** | In-memory pub/sub: task, result, question, info, status, interrupt. Direct or broadcast. Auto-delivery to idle agents |
 | **Agent persistence** | State, events and shared context sync to GCS. Agents survive container restarts and cold starts |
 | **Parent-child lifecycle** | Agents spawn sub-agents. Destroying a parent auto-destroys the entire subtree |
 | **OpenRouter support** | Route through OpenRouter or direct Anthropic API. Switch keys at runtime from the UI |
 | **Model selection** | Opus 4.6, Sonnet 4.6, Sonnet 4.5, Haiku 4.5. Choose per agent based on task complexity |
 | **MCP integrations** | GitHub, Figma, Linear, Notion, Slack, Google Calendar. See [MCP servers](#mcp-servers) |
-| **Safety guardrails** | Command blocklists, rate limiting, memory monitoring, spawn depth limits (3 deep, 6 children), 4-hour session TTL |
+| **Safety guardrails** | Command blocklists, rate limiting, memory monitoring, spawn depth limits (3 deep, 20 children), 4-hour session TTL |
 | **Git worktree management** | Persistent bare repos in `/persistent/repos/` with per-agent worktrees and automatic GC |
 
 ## Usage Examples
@@ -222,7 +227,7 @@ Claude Code has two delegation mechanisms on this platform:
 **Hybrid:** "Research this repo's structure, then spawn a visible agent team to do the implementation." Task tool for the fast research phase, then platform API for visible work.
 
 ### Parent-Child Relationships
-Agents spawn sub-agents with `parentId`. Destroying a parent auto-destroys all children. Max depth of 3, max 6 children per agent.
+Agents spawn sub-agents with `parentId`. Destroying a parent auto-destroys all children. Max depth of 3, max 20 children per agent.
 
 ## Kill Switch
 
@@ -241,7 +246,7 @@ The kill switch exists so this never happens again.
 | **1** | Global halt | `POST /api/kill-switch` blocks all API requests. Persistent flag survives restarts via GCS sync. Big red button in the UI. |
 | **2** | Nuclear process kill | All tracked agents destroyed + all `claude` processes on the system killed. Workspaces wiped. |
 | **3** | Token invalidation | JWT secret rotated on activation (and again on deactivation). All existing tokens instantly invalid. |
-| **4** | Spawn limits | Max depth 3, max 6 children. Prevents recursive swarm explosions. |
+| **4** | Spawn limits | Max depth 3, max 20 children. Prevents recursive swarm explosions. |
 | **5** | Command blocklist | `gh pr merge`, `gcloud deploy`, `terraform apply`, `git push --force` blocked. These are speed bumps, not walls. |
 | **6** | Remote kill via GCS | Upload a kill switch file directly to GCS to halt the platform even if the API is unreachable. |
 
@@ -438,7 +443,7 @@ gcloud run services update claude-swarm --region=$REGION --project=$PROJECT_ID
 
 ## Security
 
-**Warning:** This platform runs Claude CLI with `--dangerously-skip-permissions`, meaning agents have full access to execute shell commands, read/write files and make network requests within their workspace.
+**Warning:** By default, agents run with permission prompts enabled. If you pass `--dangerously-skip-permissions` when creating an agent, it will have full access to execute shell commands, read/write files and make network requests without confirmation. Only opt in to this when you understand the risks.
 
 Each agent runs in an isolated `/tmp/workspace-{uuid}` directory but shares the container's network and process namespace.
 
@@ -451,7 +456,7 @@ Built-in safeguards:
 - Rate limiting on API endpoints
 - 4-hour session TTL with automatic cleanup
 - Max 100 concurrent agents per container
-- Max agent spawn depth of 3 and max 6 children per agent (prevents recursive swarm explosions)
+- Max agent spawn depth of 3 and max 20 children per agent (prevents recursive swarm explosions)
 - Emergency kill switch - halts all agents, rotates JWT secret and persists state to GCS
 - Non-root container user (`agent:agent`)
 - Environment variable allowlist (not denylist) prevents credential leakage
@@ -567,6 +572,7 @@ src/
   validation.ts        # Input validation + rate limiting
   guardrails.ts        # Safety config (tool allowlists, limits, spawning depth)
   kill-switch.ts       # Emergency kill switch (persistent state, GCS sync)
+  logger.ts            # Structured logging (replaces console.log throughout)
   types.ts             # Shared TypeScript interfaces
   routes/              # Express route handlers
   utils/               # SSE, memory monitoring, file listing, config
@@ -576,10 +582,10 @@ commands/              # Slash command skills
   check-messages.md    # /check-messages - check message bus inbox
   send-message.md      # /send-message - post to message bus
   spawn-agent.md       # /spawn-agent - create sub-agents
-ui/                    # React SPA (Vite + Tailwind v4 + @fanvue/ui)
+ui/                    # Next.js App Router (Tailwind v4 + @fanvue/ui)
   src/
-    pages/             # Login, Dashboard, AgentView, Graph, Costs, Messages
-    components/        # Header, Sidebar, AgentCard, AgentTerminal, PromptInput, MessageFeed, SwarmGraph
+    app/               # Next.js App Router pages and layouts
+    components/        # Header, Sidebar, AgentCard, AgentTerminal, PromptInput, MessageFeed, SwarmGraph, TaskGraph
     hooks/             # useAgentStream (SSE management)
     api.ts             # API client with SSE parsing
     auth.tsx           # Auth context (JWT in sessionStorage)
