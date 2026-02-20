@@ -419,6 +419,8 @@ export function createApi(authFetch: AuthFetch) {
         maxChildrenPerAgent: number;
         sessionTtlMs: number;
       };
+      integrations?: Record<string, { configured: boolean; authMethod: string }>;
+      linearConfigured?: boolean;
     }> {
       const res = await authFetch("/api/settings");
       if (!res.ok) throw new Error("Failed to get settings");

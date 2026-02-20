@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import express, { type Request, type Response } from "express";
 import * as guardrails from "../guardrails";
+import { MCP_SERVERS } from "../mcp-oauth-manager";
+import { getAllTokens, isTokenExpired } from "../mcp-oauth-storage";
 import { resetSanitizeCache } from "../sanitize";
 import { syncClaudeHome } from "../storage";
 import { errorMessage } from "../types";
@@ -15,6 +17,27 @@ export function createConfigRouter() {
   router.get("/api/settings", (_req, res) => {
     const isOpenRouter = !!process.env.ANTHROPIC_AUTH_TOKEN;
     const key = (isOpenRouter ? process.env.ANTHROPIC_AUTH_TOKEN : process.env.ANTHROPIC_API_KEY) || "";
+
+    // Check Linear API key availability and MCP OAuth status
+    const hasLinearApiKey = !!process.env.LINEAR_API_KEY;
+    const storedTokens = getAllTokens();
+    const linearToken = storedTokens.find((t) => t.server === "linear");
+    const hasLinearOAuth = !!linearToken && !isTokenExpired(linearToken);
+    const linearConfigured = hasLinearApiKey || hasLinearOAuth;
+
+    // Build integrations status for all MCP servers
+    const integrations: Record<string, { configured: boolean; authMethod: string }> = {};
+    for (const [name] of Object.entries(MCP_SERVERS)) {
+      const token = storedTokens.find((t) => t.server === name);
+      const hasOAuth = !!token && !isTokenExpired(token);
+      const envKey = name === "linear" ? "LINEAR_API_KEY" : name === "figma" ? "FIGMA_TOKEN" : "";
+      const hasEnvKey = envKey ? !!process.env[envKey] : false;
+      integrations[name] = {
+        configured: hasEnvKey || hasOAuth,
+        authMethod: hasEnvKey ? "token" : hasOAuth ? "oauth" : "none",
+      };
+    }
+
     res.json({
       anthropicKeyHint: key ? `...${key.slice(-8)}` : "(not set)",
       keyMode: isOpenRouter ? "openrouter" : "anthropic",
@@ -28,6 +51,8 @@ export function createConfigRouter() {
         maxChildrenPerAgent: guardrails.MAX_CHILDREN_PER_AGENT,
         sessionTtlMs: guardrails.SESSION_TTL_MS,
       },
+      integrations,
+      linearConfigured,
     });
   });
 

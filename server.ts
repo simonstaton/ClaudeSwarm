@@ -24,6 +24,7 @@ import { createMessagesRouter } from "./src/routes/messages";
 import { createSchedulerRouter } from "./src/routes/scheduler";
 import { createTasksRouter } from "./src/routes/tasks";
 import { createUsageRouter } from "./src/routes/usage";
+import { createWorkflowsRouter } from "./src/routes/workflows";
 import { Scheduler } from "./src/scheduler";
 import {
   cleanupClaudeHome,
@@ -204,6 +205,7 @@ app.use(createMcpRouter());
 app.use(createCostRouter(agentManager, costTracker));
 app.use(createTasksRouter(taskGraph, orchestrator, gradeStore));
 app.use(createSchedulerRouter(scheduler));
+app.use(createWorkflowsRouter(agentManager, messageBus));
 // Layer 1: Kill switch endpoint (no extra auth beyond authMiddleware above)
 app.use(createKillSwitchRouter(agentManager));
 

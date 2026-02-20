@@ -1,9 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../auth";
+import { useApi } from "../hooks/useApi";
 import type { KillSwitchState } from "../hooks/useKillSwitch";
+import { LinearWorkflowDialog } from "./LinearWorkflowDialog";
 
 interface HeaderProps {
   agentCount: number;
@@ -19,7 +21,28 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
   const { logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const api = useApi();
   const [confirming, setConfirming] = useState(false);
+  const [linearDialogOpen, setLinearDialogOpen] = useState(false);
+  const [linearConfigured, setLinearConfigured] = useState<boolean | null>(null);
+
+  // Fetch Linear configuration status on mount
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getSettings()
+      .then((settings) => {
+        if (!cancelled) {
+          setLinearConfigured(settings.linearConfigured ?? false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLinearConfigured(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
 
   const handlePanicClick = () => {
     if (killSwitch.state.killed) return;
@@ -50,6 +73,18 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Linear workflow button - always visible, dialog handles auth state */}
+          {linearConfigured !== null && (
+            <button
+              type="button"
+              onClick={() => setLinearDialogOpen(true)}
+              title={linearConfigured ? "Start a Linear issue workflow" : "Connect Linear"}
+              className="px-3 py-1.5 text-sm font-medium bg-indigo-900/40 hover:bg-indigo-800/60 border border-indigo-700/50 hover:border-indigo-500/50 text-indigo-300 hover:text-indigo-100 rounded transition-colors"
+            >
+              Linear
+            </button>
+          )}
+
           {/* Panic button - only shown when kill switch is not already active */}
           {!killSwitch.state.killed && (
             <button
@@ -238,6 +273,13 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
           </div>
         </div>
       )}
+
+      {/* Linear workflow dialog */}
+      <LinearWorkflowDialog
+        open={linearDialogOpen}
+        onClose={() => setLinearDialogOpen(false)}
+        linearConfigured={linearConfigured ?? false}
+      />
     </>
   );
 }
