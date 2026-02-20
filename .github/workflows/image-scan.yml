@@ -1,10 +1,10 @@
 name: Container Image Vulnerability Scan
 
+# NOTE: pull_request trigger intentionally omitted — Docker build + Trivy
+# scan is expensive and redundant with the push-to-main scan. Vulnerabilities
+# are caught immediately after merge and on the weekly schedule.
 on:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
   schedule:

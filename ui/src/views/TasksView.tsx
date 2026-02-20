@@ -16,9 +16,9 @@ function Tooltip({ text, children }: { text: string; children: React.ReactNode }
   const [visible, setVisible] = useState(false);
   const tooltipId = useId();
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: tooltip wrapper delegates keyboard interaction to children
     <span
       className="relative inline-flex"
+      role="none"
       onMouseEnter={() => setVisible(true)}
       onMouseLeave={() => setVisible(false)}
       onFocus={() => setVisible(true)}
