@@ -16,6 +16,7 @@ function Tooltip({ text, children }: { text: string; children: React.ReactNode }
   const [visible, setVisible] = useState(false);
   const tooltipId = useId();
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: tooltip wrapper delegates keyboard interaction to children
     <span
       className="relative inline-flex"
       onMouseEnter={() => setVisible(true)}
@@ -30,7 +31,10 @@ function Tooltip({ text, children }: { text: string; children: React.ReactNode }
         className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-zinc-200 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg w-56 text-center whitespace-normal z-50 transition-opacity ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
       >
         {text}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800" aria-hidden="true" />
+        <span
+          className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"
+          aria-hidden="true"
+        />
       </span>
     </span>
   );
@@ -59,7 +63,10 @@ function InfoTooltip({ text }: { text: string }) {
         className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-zinc-200 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg w-56 text-center whitespace-normal z-50 transition-opacity ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
       >
         {text}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800" aria-hidden="true" />
+        <span
+          className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"
+          aria-hidden="true"
+        />
       </span>
     </span>
   );
@@ -232,7 +239,9 @@ function TaskDetailPanel({
           <div className="flex items-center gap-2 pt-1">
             {(task.status === "pending" || task.status === "blocked") && agents.length > 0 && (
               <div className="flex items-center gap-2">
-                <label htmlFor={`assign-select-${task.id}`} className="text-xs text-zinc-500">Assign to agent:</label>
+                <label htmlFor={`assign-select-${task.id}`} className="text-xs text-zinc-500">
+                  Assign to agent:
+                </label>
                 <select
                   id={`assign-select-${task.id}`}
                   value={assignAgentId}
@@ -498,16 +507,26 @@ export function TasksView() {
 
           <details className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden group" open>
             <summary className="px-4 py-3 text-sm text-zinc-400 cursor-pointer hover:text-zinc-200 flex items-center gap-2 select-none">
-              <svg className="w-4 h-4 text-zinc-500 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              <svg
+                className="w-4 h-4 text-zinc-500 transition-transform group-open:rotate-90"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
               <span className="font-medium text-zinc-300">How does the task queue work?</span>
               <span className="text-xs text-zinc-600 ml-auto hidden group-open:inline">Collapse</span>
               <span className="text-xs text-zinc-600 ml-auto group-open:hidden">Expand</span>
             </summary>
             <div className="px-4 pb-3 space-y-2 text-sm text-zinc-400 border-t border-zinc-800 pt-3">
               <p>
-                The task queue lets you define work items that agents pick up and execute automatically. Create tasks here,
-                then either manually assign them to agents or click <strong className="text-zinc-300">Auto-Assign</strong> to
-                let the orchestrator match pending tasks with available agents.
+                The task queue lets you define work items that agents pick up and execute automatically. Create tasks
+                here, then either manually assign them to agents or click{" "}
+                <strong className="text-zinc-300">Auto-Assign</strong> to let the orchestrator match pending tasks with
+                available agents.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div>
@@ -603,13 +622,28 @@ export function TasksView() {
                 color="text-green-400"
                 tooltip="Tasks currently running or assigned to an agent"
               />
-              <StatCard label="Pending" value={summary.byStatus.pending} color="text-zinc-400" tooltip="Tasks waiting to be assigned to an agent" />
+              <StatCard
+                label="Pending"
+                value={summary.byStatus.pending}
+                color="text-zinc-400"
+                tooltip="Tasks waiting to be assigned to an agent"
+              />
               <StatCard label="Completed" value={summary.byStatus.completed} color="text-blue-400" />
               {summary.byStatus.failed > 0 && (
-                <StatCard label="Failed" value={summary.byStatus.failed} color="text-red-400" tooltip="Tasks that errored out. Click a task to retry." />
+                <StatCard
+                  label="Failed"
+                  value={summary.byStatus.failed}
+                  color="text-red-400"
+                  tooltip="Tasks that errored out. Click a task to retry."
+                />
               )}
               {summary.byStatus.blocked > 0 && (
-                <StatCard label="Blocked" value={summary.byStatus.blocked} color="text-amber-400" tooltip="Tasks waiting on dependencies to complete first" />
+                <StatCard
+                  label="Blocked"
+                  value={summary.byStatus.blocked}
+                  color="text-amber-400"
+                  tooltip="Tasks waiting on dependencies to complete first"
+                />
               )}
             </div>
           )}
@@ -648,8 +682,12 @@ export function TasksView() {
                   <th className="px-4 py-2.5">Title</th>
                   <th className="px-4 py-2.5 w-24">Status</th>
                   <th className="px-4 py-2.5 w-20">Priority</th>
-                  <th className="px-4 py-2.5 w-28" title="The agent currently assigned to this task">Owner</th>
-                  <th className="px-4 py-2.5 w-16" title="Number of tasks this depends on (must complete first)">Deps</th>
+                  <th className="px-4 py-2.5 w-28" title="The agent currently assigned to this task">
+                    Owner
+                  </th>
+                  <th className="px-4 py-2.5 w-16" title="Number of tasks this depends on (must complete first)">
+                    Deps
+                  </th>
                   <th className="px-4 py-2.5 w-24">Created</th>
                   <th className="px-4 py-2.5 w-20">Actions</th>
                 </tr>
@@ -695,7 +733,16 @@ export function TasksView() {
                       >
                         <td className="px-4 py-2.5 text-zinc-200 truncate max-w-[300px]" title={task.title}>
                           <span className="flex items-center gap-1.5">
-                            <svg className={`w-3 h-3 text-zinc-600 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                            <svg
+                              className={`w-3 h-3 text-zinc-600 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              aria-hidden="true"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
                             {task.title}
                           </span>
                         </td>
