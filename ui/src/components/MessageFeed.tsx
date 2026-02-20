@@ -179,7 +179,7 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
                 <span className="font-medium text-zinc-300">{msg.fromName || agentName(msg.from, agents)}</span>
                 {msg.to && (
                   <>
-                    <span className="text-zinc-400">-></span>
+                    <span className="text-zinc-400">-&gt;</span>
                     <span className="text-zinc-400">{agentName(msg.to, agents)}</span>
                   </>
                 )}
