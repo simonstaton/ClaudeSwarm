@@ -174,7 +174,6 @@ export interface Repository {
   name: string;
   dirName: string;
   url: string | null;
-  path: string;
   hasActiveAgents: boolean;
   activeAgentCount: number;
   activeAgents: Array<{ id: string; name: string }>;
@@ -810,12 +809,10 @@ export function createApi(authFetch: AuthFetch) {
     },
 
     async deleteRepository(name: string): Promise<void> {
-      const res = await authFetch(`/api/repositories/${encodeURIComponent(name)}`, {
-        method: "DELETE",
-      });
+      const res = await authFetch(`/api/repositories/${encodeURIComponent(name)}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error || "Failed to remove repository");
+        throw new Error((data as { error?: string }).error || "Failed to delete repository");
       }
     },
   };

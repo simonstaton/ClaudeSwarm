@@ -1040,9 +1040,12 @@ export function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) 
   );
 }
 
+const CLONE_OUTPUT_MAX_LINES = 200;
+
 export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }) {
   const [repos, setRepos] = useState<Repository[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [cloning, setCloning] = useState(false);
   const [cloneOutput, setCloneOutput] = useState<string[]>([]);
@@ -1051,23 +1054,15 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const outputRef = useRef<HTMLPreElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const messageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Cleanup on unmount: abort any in-flight clone and clear pending timers
-  useEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-      if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
-    };
-  }, []);
 
   const refresh = useCallback(async () => {
     try {
       const data = await api.listRepositories();
       setRepos(data.repositories);
+      setLoadError(false);
     } catch (err) {
       console.error("[RepositoriesPanel] refresh failed", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -1078,7 +1073,7 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
   }, [refresh]);
 
   // Auto-scroll clone output
-  // biome-ignore lint/correctness/useExhaustiveDependencies: cloneOutput change triggers the scroll
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cloneOutput change triggers the auto-scroll
   useEffect(() => {
     if (outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
@@ -1088,25 +1083,16 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
   const showMessage = (msg: string, type: "success" | "error") => {
     setMessage(msg);
     setMessageType(type);
-    if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
-    messageTimerRef.current = setTimeout(() => setMessage(""), 5000);
+    setTimeout(() => setMessage(""), 5000);
   };
 
   const startClone = async () => {
     const url = newUrl.trim();
     if (!url || cloning) return;
 
-    if (!/^https?:\/\/.+\/.+/.test(url) && !/^[\w.-]+@[\w.-]+:.+/.test(url)) {
-      showMessage("Invalid git URL. Provide an HTTPS or SSH URL.", "error");
-      return;
-    }
-
     setCloning(true);
     setCloneOutput([]);
     setMessage("");
-
-    const controller = new AbortController();
-    abortRef.current = controller;
 
     try {
       const res = await api.cloneRepository(url);
@@ -1129,45 +1115,38 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
       const decoder = new TextDecoder();
       let buffer = "";
 
-      try {
-        while (!controller.signal.aborted) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
 
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            try {
-              const event = JSON.parse(line.slice(6));
-              if (event.type === "clone-progress" && event.text) {
-                setCloneOutput((prev) => {
-                  const next = [...prev, event.text as string];
-                  return next.length > 200 ? next.slice(-200) : next;
-                });
-              } else if (event.type === "clone-complete") {
-                showMessage(`Repository "${event.repo}" cloned successfully`, "success");
-                setNewUrl("");
-                await refresh();
-              } else if (event.type === "clone-error") {
-                showMessage(event.error || "Clone failed", "error");
-              }
-            } catch {
-              // skip unparseable
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "clone-progress" && event.text) {
+              setCloneOutput((prev) => {
+                const next = [...prev, event.text];
+                return next.length > CLONE_OUTPUT_MAX_LINES ? next.slice(-CLONE_OUTPUT_MAX_LINES) : next;
+              });
+            } else if (event.type === "clone-complete") {
+              showMessage(`Repository "${event.repo}" cloned successfully`, "success");
+              setNewUrl("");
+              await refresh();
+            } else if (event.type === "clone-error") {
+              showMessage(event.error || "Clone failed", "error");
             }
+          } catch {
+            // skip unparseable
           }
         }
-      } finally {
-        reader.cancel();
       }
     } catch (err) {
-      if (!controller.signal.aborted) {
-        showMessage(err instanceof Error ? err.message : "Clone failed", "error");
-      }
+      showMessage(err instanceof Error ? err.message : "Clone failed", "error");
     } finally {
-      if (abortRef.current === controller) abortRef.current = null;
       setCloning(false);
     }
   };
@@ -1195,6 +1174,24 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <Alert variant="error">Failed to load repositories. Check your connection and try again.</Alert>
+        <Button
+          variant="secondary"
+          size="40"
+          onClick={() => {
+            setLoading(true);
+            refresh();
+          }}
+        >
+          Retry
+        </Button>
       </div>
     );
   }
@@ -1287,17 +1284,13 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
                 <Button
                   variant="secondary"
                   size="24"
-                  onClick={() => {
-                    if (repo.hasActiveAgents) {
-                      const names = repo.activeAgents.map((a) => a.name).join(", ");
-                      showMessage(
-                        `Cannot remove — ${repo.activeAgentCount} active agent(s) using this repo: ${names}`,
-                        "error",
-                      );
-                    } else {
-                      setPendingDelete(repo.name);
-                    }
-                  }}
+                  disabled={repo.hasActiveAgents}
+                  title={
+                    repo.hasActiveAgents
+                      ? `Cannot remove — ${repo.activeAgentCount} active agent(s) using this repo. Destroy them first.`
+                      : "Remove repository"
+                  }
+                  onClick={() => setPendingDelete(repo.name)}
                   className="text-zinc-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-3"
                 >
                   Remove

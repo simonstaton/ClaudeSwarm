@@ -8,15 +8,18 @@ import type { AgentManager } from "../agents";
 const execFileAsync = promisify(execFile);
 const PERSISTENT_REPOS = "/persistent/repos";
 
-/** Track in-progress clones to prevent TOCTOU duplicate-clone races. */
-const cloningRepos = new Set<string>();
+/** Set of targetDirs currently being cloned — prevents concurrent duplicate clones. */
+const cloningInProgress = new Set<string>();
 
-/** Extract a repository name from an HTTPS or SSH git URL. */
+/** Extract and sanitize a repository name from an HTTPS or SSH git URL. */
 function extractRepoName(url: string): string | null {
   // HTTPS: https://github.com/org/repo.git or https://github.com/org/repo
   // SSH:   git@github.com:org/repo.git
   const match = url.match(/\/([^/]+?)(?:\.git)?\s*$/) || url.match(/:([^/]+?)(?:\.git)?\s*$/);
-  return match ? match[1] : null;
+  if (!match) return null;
+  // Strip characters that are unsafe in directory names
+  const sanitized = match[1].replace(/[^a-zA-Z0-9._-]/g, "");
+  return sanitized || null;
 }
 
 /** Validate that a string looks like a git remote URL (HTTPS or SSH). */
@@ -91,7 +94,9 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
         return;
       }
 
-      const entries = fs.readdirSync(PERSISTENT_REPOS).filter((f) => f.endsWith(".git"));
+      const entries = fs
+        .readdirSync(PERSISTENT_REPOS)
+        .filter((f) => f.endsWith(".git") && fs.statSync(path.join(PERSISTENT_REPOS, f)).isDirectory());
       const repositories = await Promise.all(
         entries.map(async (entry) => {
           const repoPath = path.join(PERSISTENT_REPOS, entry);
@@ -101,7 +106,6 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
             name: entry.replace(/\.git$/, ""),
             dirName: entry,
             url,
-            path: repoPath,
             hasActiveAgents: activeAgents.length > 0,
             activeAgentCount: activeAgents.length,
             activeAgents,
@@ -139,15 +143,26 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
 
     const targetDir = path.join(PERSISTENT_REPOS, `${repoName}.git`);
 
-    // Guard against TOCTOU: check both in-progress clones and existing dirs
-    if (cloningRepos.has(repoName) || fs.existsSync(targetDir)) {
+    // Prevent path traversal
+    const resolvedTarget = path.resolve(targetDir);
+    if (!resolvedTarget.startsWith(path.resolve(PERSISTENT_REPOS) + path.sep)) {
+      res.status(400).json({ error: "Invalid repository name" });
+      return;
+    }
+
+    if (fs.existsSync(targetDir)) {
       res.status(409).json({ error: `Repository "${repoName}" already exists` });
       return;
     }
-    cloningRepos.add(repoName);
+
+    if (cloningInProgress.has(resolvedTarget)) {
+      res.status(409).json({ error: `Repository "${repoName}" is already being cloned` });
+      return;
+    }
 
     // Ensure /persistent/repos/ exists
     fs.mkdirSync(PERSISTENT_REPOS, { recursive: true });
+    cloningInProgress.add(resolvedTarget);
 
     // Set up SSE
     res.writeHead(200, {
@@ -182,7 +197,7 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
     });
 
     proc.on("close", (code) => {
-      cloningRepos.delete(repoName);
+      cloningInProgress.delete(resolvedTarget);
       if (code === 0) {
         sendEvent({ type: "clone-complete", repo: repoName });
         console.log(`[repositories] Cloned ${trimmedUrl} -> ${targetDir}`);
@@ -198,7 +213,7 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
     });
 
     proc.on("error", (err) => {
-      cloningRepos.delete(repoName);
+      cloningInProgress.delete(resolvedTarget);
       try {
         fs.rmSync(targetDir, { recursive: true, force: true });
       } catch {}
@@ -221,15 +236,15 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
     const dirName = name.endsWith(".git") ? name : `${name}.git`;
     const repoPath = path.join(PERSISTENT_REPOS, dirName);
 
-    // Prevent path traversal before any filesystem access
-    const resolved = path.resolve(repoPath);
-    if (!resolved.startsWith(path.resolve(PERSISTENT_REPOS) + path.sep)) {
-      res.status(400).json({ error: "Invalid repository name" });
+    if (!fs.existsSync(repoPath)) {
+      res.status(404).json({ error: `Repository "${name}" not found` });
       return;
     }
 
-    if (!fs.existsSync(repoPath)) {
-      res.status(404).json({ error: `Repository "${name}" not found` });
+    // Prevent path traversal
+    const resolved = path.resolve(repoPath);
+    if (!resolved.startsWith(path.resolve(PERSISTENT_REPOS) + path.sep)) {
+      res.status(400).json({ error: "Invalid repository name" });
       return;
     }
 
