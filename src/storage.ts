@@ -1,9 +1,11 @@
-import { existsSync, type FSWatcher, mkdirSync, readdirSync, rmSync, statSync, watch, writeFileSync } from "node:fs";
+import { type FSWatcher, rmSync, watch } from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { errorMessage } from "./types";
 import { getContextDir } from "./utils/context";
 import { walkDir } from "./utils/files";
+
+const fileExists = (p: string): Promise<boolean> => fsPromises.access(p).then(() => true, () => false);
 
 const GCS_BUCKET = process.env.GCS_BUCKET;
 const HOME = process.env.HOME || "/home/agent";
@@ -69,17 +71,17 @@ async function downloadDir(prefix: string, localDir: string): Promise<void> {
       const bucket = gcs.bucket(GCS_BUCKET);
       const [files] = await bucket.getFiles({ prefix });
 
-      mkdirSync(localDir, { recursive: true });
+      await fsPromises.mkdir(localDir, { recursive: true });
 
       for (const file of files) {
         const relativePath = file.name.slice(prefix.length);
         if (!relativePath || relativePath.endsWith("/")) continue;
 
         const localPath = path.join(localDir, relativePath);
-        mkdirSync(path.dirname(localPath), { recursive: true });
+        await fsPromises.mkdir(path.dirname(localPath), { recursive: true });
 
         const [contents] = await file.download();
-        writeFileSync(localPath, contents);
+        await fsPromises.writeFile(localPath, contents);
         await yieldToEventLoop();
       }
       console.log(`Synced from GCS: ${prefix} -> ${localDir} (${files.length} files)`);
@@ -93,7 +95,7 @@ async function uploadDir(localDir: string, prefix: string): Promise<void> {
   const gcs = await getStorage();
   if (!gcs || !GCS_BUCKET) return;
 
-  if (!existsSync(localDir)) return;
+  if (!await fileExists(localDir)) return;
 
   try {
     await retryWithBackoff(async () => {
@@ -122,8 +124,8 @@ async function downloadFile(gcsPath: string, localPath: string): Promise<void> {
       const [exists] = await bucket.file(gcsPath).exists();
       if (!exists) return;
       const [contents] = await bucket.file(gcsPath).download();
-      mkdirSync(path.dirname(localPath), { recursive: true });
-      writeFileSync(localPath, contents);
+      await fsPromises.mkdir(path.dirname(localPath), { recursive: true });
+      await fsPromises.writeFile(localPath, contents);
       console.log(`Synced from GCS: ${gcsPath} -> ${localPath}`);
     }, `downloadFile(${gcsPath})`);
   } catch (err: unknown) {
@@ -134,7 +136,7 @@ async function downloadFile(gcsPath: string, localPath: string): Promise<void> {
 async function uploadFile(localPath: string, gcsPath: string): Promise<void> {
   const gcs = await getStorage();
   if (!gcs || !GCS_BUCKET) return;
-  if (!existsSync(localPath)) return;
+  if (!await fileExists(localPath)) return;
   try {
     await retryWithBackoff(async () => {
       const bucket = gcs.bucket(GCS_BUCKET);
@@ -187,53 +189,52 @@ export async function cleanupClaudeHome(activeWorkspaceDirs: Set<string>): Promi
 
   // Clean projects/ - each subdir is named like `-tmp-workspace-{uuid}`
   const projectsDir = path.join(CLAUDE_HOME, "projects");
-  if (existsSync(projectsDir)) {
-    try {
-      for (const entry of readdirSync(projectsDir)) {
-        const match = entry.match(/workspace-([0-9a-f-]+)/);
-        if (!match) continue;
-        if (activeUUIDs.has(match[1])) continue;
-        const fullPath = path.join(projectsDir, entry);
-        try {
-          rmSync(fullPath, { recursive: true, force: true });
-          localCleaned++;
-          gcsPrefixesToDelete.push(`claude-home/projects/${entry}/`);
-        } catch {}
-      }
-    } catch {}
-  }
+  try {
+    for (const entry of await fsPromises.readdir(projectsDir)) {
+      const match = entry.match(/workspace-([0-9a-f-]+)/);
+      if (!match) continue;
+      if (activeUUIDs.has(match[1])) continue;
+      const fullPath = path.join(projectsDir, entry);
+      try {
+        rmSync(fullPath, { recursive: true, force: true });
+        localCleaned++;
+        gcsPrefixesToDelete.push(`claude-home/projects/${entry}/`);
+      } catch {}
+    }
+  } catch {}
 
   // Clean todos/ - files/dirs named like `-tmp-workspace-{uuid}...`
   const todosDir = path.join(CLAUDE_HOME, "todos");
-  if (existsSync(todosDir)) {
-    try {
-      for (const entry of readdirSync(todosDir)) {
-        const match = entry.match(/workspace-([0-9a-f-]+)/);
-        if (!match) continue;
-        if (activeUUIDs.has(match[1])) continue;
-        try {
-          rmSync(path.join(todosDir, entry), { recursive: true, force: true });
-          localCleaned++;
-          gcsPrefixesToDelete.push(`claude-home/todos/${entry}`);
-        } catch {}
-      }
-    } catch {}
-  }
+  try {
+    for (const entry of await fsPromises.readdir(todosDir)) {
+      const match = entry.match(/workspace-([0-9a-f-]+)/);
+      if (!match) continue;
+      if (activeUUIDs.has(match[1])) continue;
+      try {
+        rmSync(path.join(todosDir, entry), { recursive: true, force: true });
+        localCleaned++;
+        gcsPrefixesToDelete.push(`claude-home/todos/${entry}`);
+      } catch {}
+    }
+  } catch {}
 
   // Trim debug/ and shell-snapshots/ to the newest MAX_KEPT files
   const MAX_KEPT = 20;
   for (const subdir of ["debug", "shell-snapshots"]) {
     const dir = path.join(CLAUDE_HOME, subdir);
-    if (!existsSync(dir)) continue;
     try {
-      const entries = readdirSync(dir)
-        .map((name) => {
+      const names = await fsPromises.readdir(dir);
+      const statsResults = await Promise.all(
+        names.map(async (name) => {
           try {
-            return { name, mtime: statSync(path.join(dir, name)).mtimeMs };
+            const { mtimeMs } = await fsPromises.stat(path.join(dir, name));
+            return { name, mtime: mtimeMs };
           } catch {
             return null;
           }
-        })
+        }),
+      );
+      const entries = statsResults
         .filter((e): e is { name: string; mtime: number } => e !== null)
         .sort((a, b) => b.mtime - a.mtime);
 
@@ -365,7 +366,7 @@ export async function syncFromGCS(): Promise<void> {
 
 export async function syncContextFile(filename: string): Promise<void> {
   const localPath = path.join(SHARED_CONTEXT_DIR, filename);
-  if (!existsSync(localPath)) return;
+  if (!await fileExists(localPath)) return;
   await uploadFile(localPath, `shared-context/${filename}`);
 }
 
@@ -377,7 +378,7 @@ export async function syncClaudeHome(): Promise<void> {
   await uploadDir(CLAUDE_HOME, "claude-home/");
   // Also sync ~/CLAUDE.md (user-level instructions, lives outside ~/.claude/)
   const homeClaude = path.join(HOME, "CLAUDE.md");
-  if (existsSync(homeClaude)) {
+  if (await fileExists(homeClaude)) {
     await uploadFile(homeClaude, "home-claude-md");
   }
 }
@@ -394,7 +395,7 @@ export async function syncToGCS(): Promise<void> {
     await uploadDir(CLAUDE_HOME, "claude-home/");
     // Also sync ~/CLAUDE.md (user-level instructions, lives outside ~/.claude/)
     const homeClaude = path.join(HOME, "CLAUDE.md");
-    if (existsSync(homeClaude)) {
+    if (await fileExists(homeClaude)) {
       await uploadFile(homeClaude, "home-claude-md");
     }
     if (!FUSE_ACTIVE) {
