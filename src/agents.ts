@@ -144,6 +144,104 @@ const MAX_PERSISTED_EVENTS = 5_000;
 const EVENT_FILE_TRUNCATE_THRESHOLD = 10_000;
 const EVENT_RING_BUFFER_SIZE = 1_000;
 
+// Max chars of the prompt's first line to consider when building the slug.
+const PROMPT_NAME_MAX_INPUT = 120;
+// Hard cap on the final generated name length (content words + UUID suffix).
+const PROMPT_NAME_MAX_SLUG = 40;
+
+const NAME_STOP_WORDS = new Set([
+  // Articles / conjunctions / prepositions
+  "the",
+  "and",
+  "but",
+  "for",
+  "with",
+  "from",
+  "into",
+  "about",
+  "after",
+  "before",
+  "between",
+  "out",
+  "up",
+  // Pronouns / determiners
+  "this",
+  "that",
+  "these",
+  "those",
+  "its",
+  "your",
+  "our",
+  "their",
+  "all",
+  "any",
+  "some",
+  "who",
+  "which",
+  "what",
+  "where",
+  "when",
+  "how",
+  // Short function words already excluded by the length >= 3 filter,
+  // but kept here for clarity: "a", "an", "in", "on", "at", "to",
+  // "of", "by", "or", "is", "as", "if", "it", "no", "so" etc.
+  // Auxiliary verbs
+  "are",
+  "was",
+  "were",
+  "been",
+  "being",
+  "have",
+  "has",
+  "had",
+  "does",
+  "did",
+  "will",
+  "would",
+  "could",
+  "should",
+  "might",
+  "must",
+  "shall",
+  "need",
+  "also",
+  "just",
+  "then",
+  "than",
+]);
+
+/**
+ * Derives a short, human-readable kebab-case name from the agent's prompt,
+ * with a UUID suffix to guarantee uniqueness across agents.
+ *
+ * Takes the first newline-delimited line of the prompt, strips non-alphanumeric
+ * characters, filters stop words, picks the first 3 meaningful words, then
+ * appends a 6-char slice of the agent UUID so the result is collision-free.
+ *
+ * Falls back to `agent-<uuid8>` when the prompt yields fewer than 3 usable chars.
+ *
+ * Examples:
+ *   "Analyze security vulnerabilities in auth" + id "3f2a1b..."
+ *     → "analyze-security-vulnerabilities-3f2a1b"
+ *   "do it" (all stop/short words) + id "3f2a1b..."
+ *     → "agent-3f2a1bxx" (UUID fallback)
+ *
+ * Exported for unit testing.
+ */
+export function generateNameFromPrompt(prompt: string, id: string): string {
+  // Split on newlines only — dots in version strings and paths must not break the line.
+  const firstLine = prompt.split("\n")[0].trim().slice(0, PROMPT_NAME_MAX_INPUT);
+  const words = firstLine
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !NAME_STOP_WORDS.has(w));
+  const slug = words.slice(0, 3).join("-");
+  // UUID suffix guarantees uniqueness even when two agents receive identical prompts.
+  if (slug.length < 3) return `agent-${id.slice(0, 8)}`;
+  return `${slug}-${id.slice(0, 6)}`.slice(0, PROMPT_NAME_MAX_SLUG);
+}
+
 export class AgentManager {
   private agents = new Map<string, AgentProcess>();
   private cleanupInterval: ReturnType<typeof setInterval>;
@@ -261,7 +359,7 @@ export class AgentManager {
     }
 
     const id = randomUUID();
-    const name = opts.name || `agent-${id.slice(0, 8)}`;
+    const name = opts.name || generateNameFromPrompt(opts.prompt, id);
 
     // Deduplication: reject if an agent with the same name was just created
     // by the same parent within the dedup window. This prevents duplicates
