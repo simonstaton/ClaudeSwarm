@@ -6,7 +6,7 @@ import type { AuthenticatedRequest, StreamEvent } from "../types";
 import { param, queryString } from "../utils/express";
 import { listFilesRecursive } from "../utils/files";
 import { setupSSE } from "../utils/sse";
-import { validateAgentSpec, validateCreateAgent, validateMessage } from "../validation";
+import { validateAgentSpec, validateCreateAgent, validateMessage, validatePatchAgent } from "../validation";
 
 export function createAgentsRouter(
   agentManager: AgentManager,
@@ -268,47 +268,28 @@ export function createAgentsRouter(
     }
   });
 
-  // Update agent metadata (role, capabilities, currentTask)
-  router.patch("/api/agents/:id", (req: Request, res: Response) => {
+  // Update agent metadata (role, currentTask, name)
+  // Input validation middleware enforces whitelist and sanitization (issue #62)
+  router.patch("/api/agents/:id", validatePatchAgent, (req: Request, res: Response) => {
     const id = param(req.params.id);
     const agent = agentManager.get(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
-    const { role, capabilities, currentTask } = req.body ?? {};
-    // Validate role: must be a short alphanumeric string if provided
+
+    const { role, currentTask, name } = req.body ?? {};
+
     if (role !== undefined) {
-      if (typeof role !== "string" || role.length > 50) {
-        res.status(400).json({ error: "role must be a string of max 50 characters" });
-        return;
-      }
-      const sanitizedRole = role.replace(/[^a-zA-Z0-9\-_ ]/g, "").trim();
-      if (sanitizedRole) agent.role = sanitizedRole;
+      agent.role = role;
     }
-    // Validate capabilities: must be an array of short strings
-    if (capabilities !== undefined) {
-      if (
-        !Array.isArray(capabilities) ||
-        capabilities.some((c: unknown) => typeof c !== "string" || (c as string).length > 100)
-      ) {
-        res.status(400).json({ error: "capabilities must be an array of strings (max 100 chars each)" });
-        return;
-      }
-      if (capabilities.length > 20) {
-        res.status(400).json({ error: "capabilities array must have at most 20 entries" });
-        return;
-      }
-      agent.capabilities = capabilities;
-    }
-    // Validate currentTask: must be a string with bounded length
     if (currentTask !== undefined) {
-      if (typeof currentTask !== "string" || currentTask.length > 500) {
-        res.status(400).json({ error: "currentTask must be a string of max 500 characters" });
-        return;
-      }
       agent.currentTask = currentTask;
     }
+    if (name !== undefined) {
+      agent.name = name;
+    }
+
     agentManager.touch(id);
     res.json(agent);
   });

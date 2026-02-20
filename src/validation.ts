@@ -153,3 +153,73 @@ export function validateMessage(req: Request, res: Response, next: NextFunction)
 
   next();
 }
+
+/** Validate PATCH /api/agents/:id request.
+ *  Enforces whitelist of allowed fields (role, currentTask, name) to prevent prompt injection.
+ *  Rejects any fields not in the whitelist and enforces max lengths on string fields.
+ */
+export function validatePatchAgent(req: Request, res: Response, next: NextFunction): void {
+  const body = req.body ?? {};
+
+  // Define allowed fields and their max lengths
+  const ALLOWED_FIELDS = {
+    role: 100,
+    currentTask: 1000,
+    name: 100,
+  };
+
+  // Extract only allowed fields from the request body
+  const sanitized: Record<string, unknown> = {};
+  const providedFields = Object.keys(body);
+
+  // Check for unauthorized fields
+  const unauthorizedFields = providedFields.filter((field) => !Object.prototype.hasOwnProperty.call(ALLOWED_FIELDS, field));
+  if (unauthorizedFields.length > 0) {
+    res.status(400).json({ error: `Unauthorized fields: ${unauthorizedFields.join(", ")}` });
+    return;
+  }
+
+  // Validate role if provided
+  if (body.role !== undefined) {
+    if (typeof body.role !== "string") {
+      res.status(400).json({ error: "role must be a string" });
+      return;
+    }
+    if (body.role.length > ALLOWED_FIELDS.role) {
+      res.status(400).json({ error: `role must not exceed ${ALLOWED_FIELDS.role} characters` });
+      return;
+    }
+    // Strip non-alphanumeric characters (including spaces and underscores are allowed)
+    sanitized.role = body.role.replace(/[^a-zA-Z0-9\-_ ]/g, "").trim() || undefined;
+  }
+
+  // Validate currentTask if provided
+  if (body.currentTask !== undefined) {
+    if (typeof body.currentTask !== "string") {
+      res.status(400).json({ error: "currentTask must be a string" });
+      return;
+    }
+    if (body.currentTask.length > ALLOWED_FIELDS.currentTask) {
+      res.status(400).json({ error: `currentTask must not exceed ${ALLOWED_FIELDS.currentTask} characters` });
+      return;
+    }
+    sanitized.currentTask = body.currentTask;
+  }
+
+  // Validate name if provided
+  if (body.name !== undefined) {
+    if (typeof body.name !== "string") {
+      res.status(400).json({ error: "name must be a string" });
+      return;
+    }
+    if (body.name.length > ALLOWED_FIELDS.name) {
+      res.status(400).json({ error: `name must not exceed ${ALLOWED_FIELDS.name} characters` });
+      return;
+    }
+    sanitized.name = sanitizeAgentName(body.name);
+  }
+
+  // Replace request body with sanitized data
+  req.body = sanitized;
+  next();
+}
