@@ -13,6 +13,8 @@ interface CostSummary {
     totalTokensIn: number;
     totalTokensOut: number;
   };
+  spendLimit: number | null;
+  spendLimitExceeded: boolean;
 }
 
 export function useCostPolling(intervalMs = 5000) {

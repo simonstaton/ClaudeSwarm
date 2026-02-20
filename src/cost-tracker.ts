@@ -56,7 +56,11 @@ export class CostTracker {
         estimated_cost REAL DEFAULT 0,
         created_at TEXT NOT NULL,
         closed_at TEXT
-      )
+      );
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT NOT NULL PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `);
 
     this.upsertStmt = this.db.prepare(`
@@ -130,6 +134,29 @@ export class CostTracker {
   reset(): { deleted: number } {
     const result = this.db.prepare("DELETE FROM cost_records").run();
     return { deleted: result.changes };
+  }
+
+  /** Get the spend limit (null = no limit set). */
+  getSpendLimit(): number | null {
+    const row = this.db.prepare("SELECT value FROM settings WHERE key = 'spend_limit'").get() as
+      | { value: string }
+      | undefined;
+    if (!row) return null;
+    const n = Number.parseFloat(row.value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  /** Set the spend limit. Pass null to remove the limit. */
+  setSpendLimit(limit: number | null): void {
+    if (limit === null || limit <= 0) {
+      this.db.prepare("DELETE FROM settings WHERE key = 'spend_limit'").run();
+    } else {
+      this.db
+        .prepare(
+          "INSERT INTO settings (key, value) VALUES ('spend_limit', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        )
+        .run(String(limit));
+    }
   }
 
   /** Close the database connection. */

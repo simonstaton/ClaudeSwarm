@@ -203,7 +203,7 @@ app.use(createUsageRouter(agentManager));
 app.use(createConfigRouter());
 app.use(createContextRouter());
 app.use(createMcpRouter());
-app.use(createCostRouter(agentManager, costTracker));
+app.use(createCostRouter(agentManager, costTracker, messageBus));
 app.use(createTasksRouter(taskGraph, orchestrator, gradeStore));
 app.use(createSchedulerRouter(scheduler));
 app.use(createWorkflowsRouter(agentManager, messageBus));

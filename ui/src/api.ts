@@ -619,6 +619,8 @@ export function createApi(authFetch: AuthFetch) {
         totalTokensOut: number;
         totalRecords: number;
       };
+      spendLimit: number | null;
+      spendLimitExceeded: boolean;
     }> {
       const res = await authFetch("/api/cost/summary");
       if (!res.ok) throw new Error(`Failed to fetch cost data: ${res.statusText}`);
@@ -651,6 +653,22 @@ export function createApi(authFetch: AuthFetch) {
     async resetCostHistory(): Promise<{ ok: boolean; deleted: number }> {
       const res = await authFetch("/api/cost/history", { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to reset cost history");
+      return res.json();
+    },
+
+    async fetchSpendLimit(): Promise<{ spendLimit: number | null }> {
+      const res = await authFetch("/api/cost/limit");
+      if (!res.ok) throw new Error("Failed to fetch spend limit");
+      return res.json();
+    },
+
+    async setSpendLimit(spendLimit: number | null): Promise<{ ok: boolean; spendLimit: number | null }> {
+      const res = await authFetch("/api/cost/limit", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ spendLimit }),
+      });
+      if (!res.ok) throw new Error("Failed to set spend limit");
       return res.json();
     },
 
