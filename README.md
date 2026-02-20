@@ -2,19 +2,11 @@
 
 Conduct autonomous agents at scale safely. You lead. Agents execute. Human-on-the-loop, NOT human-in-the-loop. Orchestrate AI work like a manager, not a prompt juggler.
 
+**[Watch the demo on YouTube](https://youtu.be/LSXYtYAIUKo)**
+
 <p align="center">
   <a href="https://github.com/simonstaton/AgentManager/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/simonstaton/AgentManager/stargazers"><img src="https://img.shields.io/github/stars/simonstaton/AgentManager?style=social" alt="GitHub stars"></a>
   <a href="https://github.com/simonstaton/AgentManager/actions"><img src="https://img.shields.io/github/actions/workflow/status/simonstaton/AgentManager/ci.yml" alt="CI"></a>
-</p>
-
-> One evening, an orchestrator agent decided the best way to accomplish its task was to spawn a dozen sub-agents. Those sub-agents reviewed each other's pull requests, approved them, merged them and deployed to GCP while I was AFK. The invoice was educational. That's why AgentManager has a [6-layer kill switch](#kill-switch).
-
-<p align="center">
-  <img src="assets/screenshot-dashboard.png" alt="Agent dashboard with templates and model selection" width="48%">
-  <img src="assets/screenshot-kill-switch.png" alt="Emergency kill switch dialog" width="48%">
-  <img src="assets/screenshot-costs.png" alt="Cost tracking dashboard with per-agent token usage and spend" width="100%">
-  <img src="assets/screenshot-graph.png" alt="Agent graph visualization with parent-child topology" width="100%">
 </p>
 
 ## What this actually is
@@ -212,10 +204,6 @@ In-memory pub/sub with disk persistence. Message types: `task`, `result`, `quest
 ### Shared Context
 Persistent markdown files in `/shared-context/`. All agents read and write to them. Synced to GCS so they survive restarts. Used for decisions, documentation and cross-agent memory.
 
-<p align="center">
-  <img src="assets/screenshot-settings.png" alt="Shared context editor with persistent memory files" width="100%">
-</p>
-
 ### Delegation Model
 
 Claude Code has two delegation mechanisms on this platform:
@@ -228,6 +216,8 @@ Claude Code has two delegation mechanisms on this platform:
 
 ### Parent-Child Relationships
 Agents spawn sub-agents with `parentId`. Destroying a parent auto-destroys all children. Max depth of 3, max 20 children per agent.
+
+> One evening, an orchestrator agent decided the best way to accomplish its task was to spawn a dozen sub-agents. Those sub-agents reviewed each other's pull requests, approved them, merged them and deployed to GCP while I was AFK. The invoice was educational. That's why AgentManager has a [6-layer kill switch](#kill-switch).
 
 ## Kill Switch
 
