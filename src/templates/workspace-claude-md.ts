@@ -54,7 +54,8 @@ ${opts.skillsList}
 If an API call returns **401 Unauthorized**: re-read the token file (it may have just been refreshed) and retry the request **once**. If still 401, stop retrying - your session may have been terminated.
 
 Endpoints (all require auth header):
-- \`GET  /api/messages?to={id}&unreadBy={id}\` - get messages
+- \`GET  /api/messages/stream?agentId={id}\` - **SSE stream** - use this to receive messages from other agents; server pushes instantly over a persistent connection (15s heartbeat). Without this, you will not receive messages from other agents unless you poll manually.
+- \`GET  /api/messages?to={id}&unreadBy={id}\` - poll for messages (fallback only if SSE connection drops)
 - \`POST /api/messages\` body: \`{from, fromName, to?, type, content, channel?, excludeRoles?}\` - send message (excludeRoles: optional array of agent roles to exclude from broadcasts)
 - \`POST /api/messages/{id}/read\` body: \`{agentId}\` - mark read
 - \`GET  /api/agents/registry\` - list agents
@@ -96,7 +97,7 @@ ${opts.contextIndex || "(no files yet)"}
 Your working memory file is \`shared-context/working-memory-${opts.agentName}.md\` - it has been pre-created for you. You MUST keep it updated as you work (see home-claude.md for the required format).
 
 ## Key Behaviors
-- Messages are auto-delivered when idle; check broadcasts on startup
+- Connect to \`GET /api/messages/stream?agentId=${opts.agentId}\` on startup to receive messages from other agents in real-time
 - Announce status via message bus when starting/finishing work
 - Check agent registry before starting to avoid duplicate effort
 - For guides on API usage, collaboration, storage, skills, see \`shared-context/guides/\`
