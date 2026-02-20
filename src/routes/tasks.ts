@@ -1,4 +1,6 @@
 import express, { type Request, type Response } from "express";
+import type { GradeStore } from "../grading";
+import { validateGradeInput } from "../grading";
 import type { Orchestrator } from "../orchestrator";
 import type { TaskGraph, TaskPriority, TaskResult, TaskStatus } from "../task-graph";
 import { MAX_DEPENDENCIES, MAX_RETRIES_LIMIT, MAX_TIMEOUT_MS } from "../task-graph";
@@ -32,7 +34,7 @@ function parseLimit(raw: string | undefined, defaultLimit?: number): number | un
   return Math.min(Math.max(parsed, 1), MAX_QUERY_LIMIT);
 }
 
-export function createTasksRouter(taskGraph: TaskGraph, orchestrator: Orchestrator) {
+export function createTasksRouter(taskGraph: TaskGraph, orchestrator: Orchestrator, gradeStore?: GradeStore) {
   const router = express.Router();
 
   /** List/query tasks with optional filters. */
@@ -480,6 +482,106 @@ export function createTasksRouter(taskGraph: TaskGraph, orchestrator: Orchestrat
 
     const dependents = taskGraph.getDependentTasks(id);
     res.json(dependents);
+  });
+
+  // ── Confidence grading endpoints (Phase 2.3) ──
+
+  /** Submit a confidence grade for a task. */
+  router.post("/api/grades", (req: Request, res: Response) => {
+    if (!gradeStore) {
+      res.status(501).json({ error: "Grading not enabled" });
+      return;
+    }
+
+    const validationError = validateGradeInput(req.body);
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
+    }
+
+    const grade = gradeStore.submit(req.body);
+
+    // High-risk grades trigger orchestrator escalation
+    if (grade.overallRisk === "high") {
+      orchestrator.submitResult({
+        taskId: grade.taskId,
+        status: "failed",
+        output: null,
+        confidence: "low",
+        durationMs: 0,
+        errorMessage: `High-risk grade: ${grade.reasoning || "Requires human approval"}`,
+      });
+    }
+
+    res.status(201).json(grade);
+  });
+
+  /** Get the grade for a specific task. */
+  router.get("/api/grades/:taskId", (req: Request, res: Response) => {
+    if (!gradeStore) {
+      res.status(501).json({ error: "Grading not enabled" });
+      return;
+    }
+
+    const taskId = param(req.params.taskId);
+    const grade = gradeStore.get(taskId);
+    if (!grade) {
+      res.status(404).json({ error: "No grade found for this task" });
+      return;
+    }
+    res.json(grade);
+  });
+
+  /** List all grades, optionally filtered by risk level or agentId. */
+  router.get("/api/grades", (req: Request, res: Response) => {
+    if (!gradeStore) {
+      res.status(501).json({ error: "Grading not enabled" });
+      return;
+    }
+
+    const risk = req.query.risk as string | undefined;
+    const agentId = req.query.agentId as string | undefined;
+
+    if (risk) {
+      res.json(gradeStore.getByRisk(risk as "low" | "medium" | "high"));
+      return;
+    }
+    if (agentId) {
+      res.json(gradeStore.getByAgent(agentId));
+      return;
+    }
+    res.json(gradeStore.getAll());
+  });
+
+  /** Approve a high-risk grade (human review). */
+  router.post("/api/grades/:taskId/approve", (req: Request, res: Response) => {
+    if (!gradeStore) {
+      res.status(501).json({ error: "Grading not enabled" });
+      return;
+    }
+
+    const taskId = param(req.params.taskId);
+    const grade = gradeStore.get(taskId);
+    if (!grade) {
+      res.status(404).json({ error: "No grade found for this task" });
+      return;
+    }
+
+    if (grade.overallRisk !== "high") {
+      res.status(400).json({ error: "Only high-risk grades require approval" });
+      return;
+    }
+
+    // Re-submit as completed via the orchestrator
+    orchestrator.submitResult({
+      taskId: grade.taskId,
+      status: "completed",
+      output: { approved: true, reviewer: "human", reasoning: grade.reasoning ?? null },
+      confidence: "high",
+      durationMs: 0,
+    });
+
+    res.json({ approved: true, taskId });
   });
 
   return router;

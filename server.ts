@@ -7,6 +7,7 @@ import { authMiddleware } from "./src/auth";
 import { corsMiddleware } from "./src/cors";
 import { CostTracker } from "./src/cost-tracker";
 import { initDepCache } from "./src/dep-cache";
+import { GradeStore } from "./src/grading";
 import { isKilled, loadPersistedState, startGcsKillSwitchPoll } from "./src/kill-switch";
 import { MessageBus } from "./src/messages";
 import { Orchestrator } from "./src/orchestrator";
@@ -116,6 +117,7 @@ const messageBus = new MessageBus();
 const costTracker = new CostTracker();
 const agentManager = new AgentManager({ costTracker });
 const taskGraph = new TaskGraph();
+const gradeStore = new GradeStore();
 
 const orchestrator = new Orchestrator(
   taskGraph,
@@ -211,7 +213,7 @@ app.use(createConfigRouter());
 app.use(createContextRouter());
 app.use(createMcpRouter());
 app.use(createCostRouter(agentManager, costTracker));
-app.use(createTasksRouter(taskGraph, orchestrator));
+app.use(createTasksRouter(taskGraph, orchestrator, gradeStore));
 // Layer 1: Kill switch endpoint (no extra auth beyond authMiddleware above)
 app.use(createKillSwitchRouter(agentManager));
 

@@ -2,10 +2,11 @@
 
 import { Badge, Button } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Agent } from "../api";
+import type { Agent, GradeResult } from "../api";
 import { AgentMetadataPanel } from "../components/AgentMetadataPanel";
 import { AgentTerminal } from "../components/AgentTerminal";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { RiskBadge } from "../components/RiskBadge";
 import { Header } from "../components/Header";
 import { type Attachment, PromptInput } from "../components/PromptInput";
 import { Sidebar } from "../components/Sidebar";
@@ -34,6 +35,8 @@ export function AgentView({ agentId }: { agentId: string }) {
   const { events, isStreaming, error, sendMessage, reconnect, clearEvents, injectEvent } = useAgentStream(id || null);
   const killSwitch = useKillSwitchContext();
   const { toast } = useToast();
+  const [grades, setGrades] = useState<GradeResult[]>([]);
+  const [showApproveConfirm, setShowApproveConfirm] = useState<string | null>(null);
 
   // Set page title based on agent name
   useEffect(() => {
@@ -87,6 +90,33 @@ export function AgentView({ agentId }: { agentId: string }) {
     }, 3000);
     return () => clearInterval(interval);
   }, [id, visible]);
+
+  // Poll for confidence grades
+  useEffect(() => {
+    if (!id || !visible) return;
+    const fetchGrades = async () => {
+      try {
+        const g = await apiRef.current.fetchGrades({ agentId: id });
+        setGrades(g);
+      } catch {
+        // Grading endpoint may not be available
+      }
+    };
+    fetchGrades();
+    const interval = setInterval(fetchGrades, 10_000);
+    return () => clearInterval(interval);
+  }, [id, visible]);
+
+  const handleApproveGrade = async (taskId: string) => {
+    setShowApproveConfirm(null);
+    try {
+      await apiRef.current.approveGrade(taskId);
+      setGrades((prev) => prev.filter((g) => g.taskId !== taskId));
+      toast("Grade approved", "success");
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : "Approval failed", "error");
+    }
+  };
 
   const handleStopAgent = async () => {
     if (!id) return;
@@ -198,6 +228,15 @@ export function AgentView({ agentId }: { agentId: string }) {
     <div className="h-screen flex flex-col">
       <Header agentCount={agents.length} killSwitch={killSwitch} />
       <ConfirmDialog
+        open={showApproveConfirm !== null}
+        onConfirm={() => showApproveConfirm && handleApproveGrade(showApproveConfirm)}
+        onCancel={() => setShowApproveConfirm(null)}
+        title="Approve high-risk change?"
+        description="This will mark the high-risk grade as approved and allow the task to proceed."
+        confirmLabel="Approve"
+        variant="default"
+      />
+      <ConfirmDialog
         open={showStopConfirm}
         onConfirm={handleStopAgent}
         onCancel={() => setShowStopConfirm(false)}
@@ -221,6 +260,7 @@ export function AgentView({ agentId }: { agentId: string }) {
                 <>
                   <h2 className="text-sm font-medium">{agent.name}</h2>
                   <StatusBadge status={agent.status} />
+                  {grades.length > 0 && <RiskBadge risk={grades[grades.length - 1].overallRisk} />}
                 </>
               ) : (
                 <AgentHeaderSkeleton />
@@ -325,6 +365,24 @@ export function AgentView({ agentId }: { agentId: string }) {
               <span>Agent appears stalled (no output for 10+ minutes). Send a message to attempt recovery.</span>
             </div>
           )}
+
+          {/* High-risk grade approval banner */}
+          {grades
+            .filter((g) => g.overallRisk === "high")
+            .map((g) => (
+              <div
+                key={g.taskId}
+                className="px-4 py-2 bg-red-950/30 border-b border-red-800/50 text-red-300 text-xs flex items-center justify-between gap-2"
+              >
+                <span>
+                  High-risk change for task {g.taskId.slice(0, 8)} requires approval.
+                  {g.reasoning && ` Reason: ${g.reasoning}`}
+                </span>
+                <Button variant="tertiary" size="24" onClick={() => setShowApproveConfirm(g.taskId)}>
+                  Review &amp; Approve
+                </Button>
+              </div>
+            ))}
 
           {/* Terminal */}
           <AgentTerminal events={events} />

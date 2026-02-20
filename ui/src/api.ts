@@ -96,6 +96,19 @@ export interface ClaudeConfigFile {
   deletable: boolean;
 }
 
+export type RiskLevel = "low" | "medium" | "high";
+
+export interface GradeResult {
+  taskId: string;
+  agentId: string;
+  ticketClarity: "high" | "medium" | "low";
+  fixConfidence: "high" | "medium" | "low";
+  blastRadius: "isolated" | "moderate" | "broad";
+  overallRisk: RiskLevel;
+  reasoning?: string;
+  createdAt: string;
+}
+
 type AuthFetch = (url: string, opts?: RequestInit) => Promise<Response>;
 
 export function createApi(authFetch: AuthFetch) {
@@ -528,6 +541,32 @@ export function createApi(authFetch: AuthFetch) {
     async resetCostHistory(): Promise<{ ok: boolean; deleted: number }> {
       const res = await authFetch("/api/cost/history", { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to reset cost history");
+      return res.json();
+    },
+
+    // Confidence grading
+    async fetchGrades(opts?: { risk?: RiskLevel; agentId?: string }): Promise<GradeResult[]> {
+      const params = new URLSearchParams();
+      if (opts?.risk) params.set("risk", opts.risk);
+      if (opts?.agentId) params.set("agentId", opts.agentId);
+      const res = await authFetch(`/api/grades?${params}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+
+    async fetchGrade(taskId: string): Promise<GradeResult | null> {
+      const res = await authFetch(`/api/grades/${taskId}`);
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error("Failed to fetch grade");
+      return res.json();
+    },
+
+    async approveGrade(taskId: string): Promise<{ approved: boolean; taskId: string }> {
+      const res = await authFetch(`/api/grades/${taskId}/approve`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || "Failed to approve grade");
+      }
       return res.json();
     },
   };
