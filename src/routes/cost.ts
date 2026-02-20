@@ -88,6 +88,7 @@ export function createCostRouter(agentManager: AgentManager, costTracker?: CostT
       return;
     }
     const result = costTracker.reset();
+    agentManager.resetAllUsage();
     res.json({ ok: true, deleted: result.deleted });
   });
 

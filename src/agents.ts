@@ -231,6 +231,7 @@ export class AgentManager {
       ) {
         this.upsertCostTracker(agentProc);
       }
+
       logger.info(`[restore] Restored agent ${agent.name} — status: ${agent.status}`, { agentId: agent.id });
     }
   }
@@ -739,6 +740,16 @@ export class AgentManager {
       }
     }
     return { agents: result };
+  }
+
+  /** Reset in-memory usage counters for all tracked agents.
+   *  Only clears in-memory state and persists to /persistent/ — callers are
+   *  responsible for clearing SQLite via costTracker.reset() if needed. */
+  resetAllUsage(): void {
+    for (const agentProc of this.agents.values()) {
+      agentProc.agent.usage = { tokensIn: 0, tokensOut: 0, estimatedCost: 0 };
+      saveAgentState(agentProc.agent);
+    }
   }
 
   /** Return session logs for an agent in a readable format.
