@@ -62,6 +62,24 @@ summary {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
+/* Fade-in for new-messages indicator.
+   Uses opacity only — Y-centering is already handled by Tailwind's translate
+   utility so we avoid any translate/transform property conflicts. */
+@keyframes fade-in-up {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in-up 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in {
+    animation: none;
+  }
+}
+
 /* Fix @fanvue/ui typography utilities - replace bare "Inter" with proper font-family including fallbacks */
 .typography-body-1-regular,
 .typography-body-1-medium,

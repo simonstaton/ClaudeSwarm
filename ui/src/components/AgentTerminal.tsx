@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import type { StreamEvent } from "../api";
 
@@ -28,6 +28,9 @@ export interface TerminalBlock {
 export function AgentTerminal({ events }: AgentTerminalProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [simpleMode, setSimpleMode] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [newMessageCount, setNewMessageCount] = useState(0);
+  const prevBlockCountRef = useRef(0);
 
   // Incremental parsing: only parse new events since last render
   const parsedRef = useRef<{ upTo: number; blocks: TerminalBlock[] }>({ upTo: 0, blocks: [] });
@@ -59,11 +62,46 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
     [simpleMode, allBlocks],
   );
 
+  // Track new messages arriving while user is scrolled up.
+  // Uses allBlocks.length (unfiltered) so toggling simple/detailed mode doesn't
+  // produce a spurious count delta from the filtered blocks array changing size.
+  useEffect(() => {
+    const currentCount = allBlocks.length;
+    const prevCount = prevBlockCountRef.current;
+    if (prevCount > 0 && currentCount > prevCount && !isAtBottom) {
+      setNewMessageCount((c) => c + (currentCount - prevCount));
+    }
+    prevBlockCountRef.current = currentCount;
+  }, [allBlocks.length, isAtBottom]);
+
+  // Clear new-message count when user scrolls to bottom
+  useEffect(() => {
+    if (isAtBottom) {
+      setNewMessageCount(0);
+    }
+  }, [isAtBottom]);
+
   // followOutput keeps scroll pinned to the bottom when new items arrive,
   // but only if the user hasn't manually scrolled up.
-  const followOutput = useCallback((isAtBottom: boolean) => {
-    return isAtBottom ? ("smooth" as const) : false;
+  // Using "auto" instead of "smooth" to prevent the smooth-scroll animation
+  // from fighting with the user's scroll wheel, which causes a visible
+  // 0px/3px oscillation at the bottom.
+  const followOutput = useCallback((atBottom: boolean) => {
+    return atBottom ? ("auto" as const) : false;
   }, []);
+
+  const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
+    setIsAtBottom(atBottom);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    virtuosoRef.current?.scrollToIndex({
+      index: "LAST",
+      behavior: "smooth",
+    });
+  }, []);
+
+  const showNewMessages = !isAtBottom && newMessageCount > 0;
 
   return (
     <div
@@ -95,7 +133,7 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
       </div>
 
       {/* Terminal content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         {blocks.length === 0 ? (
           <p className="text-zinc-400 text-sm italic p-4">
             {simpleMode && allBlocks.length > 0 ? "No conversation messages yet..." : "Waiting for output..."}
@@ -107,10 +145,37 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
             followOutput={followOutput}
             overscan={200}
             initialTopMostItemIndex={blocks.length - 1}
+            atBottomThreshold={150}
+            atBottomStateChange={handleAtBottomStateChange}
             className="h-full"
             itemContent={renderBlock}
             components={virtuosoComponents}
           />
+        )}
+
+        {/* New messages indicator */}
+        {showNewMessages && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-700/90 hover:bg-zinc-600/90 border border-zinc-600 text-zinc-200 text-xs shadow-lg backdrop-blur-sm transition-all animate-fade-in"
+            aria-label={`${newMessageCount} new message${newMessageCount !== 1 ? "s" : ""}, click to scroll to bottom`}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+            <span>{newMessageCount} new</span>
+          </button>
         )}
       </div>
     </div>
