@@ -434,6 +434,84 @@ export function TasksView() {
             </div>
           </div>
 
+          <details className="bg-zinc-900 border border-zinc-800 rounded-lg">
+            <summary className="px-4 py-3 text-sm text-zinc-400 cursor-pointer hover:text-zinc-200">
+              When to use the task queue
+            </summary>
+            <div className="px-4 pb-3 space-y-2 text-sm text-zinc-400">
+              <p>
+                The task queue lets you define work items that agents pick up and execute automatically. Use it when you
+                want structured, trackable work — especially across multiple agents or with dependencies between steps.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Use the task queue when</p>
+                  <ul className="space-y-0.5 text-zinc-400">
+                    <li className="flex gap-1.5">
+                      <span className="text-zinc-600" aria-hidden="true">
+                        –
+                      </span>
+                      You have multiple tasks to queue and prioritize
+                    </li>
+                    <li className="flex gap-1.5">
+                      <span className="text-zinc-600" aria-hidden="true">
+                        –
+                      </span>
+                      Tasks have dependencies on each other
+                    </li>
+                    <li className="flex gap-1.5">
+                      <span className="text-zinc-600" aria-hidden="true">
+                        –
+                      </span>
+                      You want automatic assignment to idle agents
+                    </li>
+                    <li className="flex gap-1.5">
+                      <span className="text-zinc-600" aria-hidden="true">
+                        –
+                      </span>
+                      You need retry logic or timeout enforcement
+                    </li>
+                    <li className="flex gap-1.5">
+                      <span className="text-zinc-600" aria-hidden="true">
+                        –
+                      </span>
+                      You want a persistent audit trail of work done
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Spawn an agent directly when</p>
+                  <ul className="space-y-0.5 text-zinc-400">
+                    <li className="flex gap-1.5">
+                      <span className="text-zinc-600" aria-hidden="true">
+                        –
+                      </span>
+                      You want work to start immediately
+                    </li>
+                    <li className="flex gap-1.5">
+                      <span className="text-zinc-600" aria-hidden="true">
+                        –
+                      </span>
+                      The task is interactive or exploratory
+                    </li>
+                    <li className="flex gap-1.5">
+                      <span className="text-zinc-600" aria-hidden="true">
+                        –
+                      </span>
+                      You need a specific model or configuration
+                    </li>
+                    <li className="flex gap-1.5">
+                      <span className="text-zinc-600" aria-hidden="true">
+                        –
+                      </span>
+                      You want to message the agent directly
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </details>
+
           {error && (
             <div className="p-2 bg-red-950/50 border border-red-800 rounded text-sm text-red-400 flex items-center justify-between">
               <span>{error}</span>
