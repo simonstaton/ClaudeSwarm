@@ -1,8 +1,11 @@
 "use client";
 
-import { memo, useCallback, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import type { StreamEvent } from "../api";
+
+/** Block kinds visible in simple mode (non-technical view) */
+const SIMPLE_MODE_KINDS = new Set<TerminalBlock["kind"]>(["text", "user_prompt", "result"]);
 
 // Stable component refs for Virtuoso - extracted outside the component to
 // prevent creating new objects on every render (which defeats Virtuoso's
@@ -24,6 +27,7 @@ export interface TerminalBlock {
 
 export function AgentTerminal({ events }: AgentTerminalProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const [simpleMode, setSimpleMode] = useState(false);
 
   // Incremental parsing: only parse new events since last render
   const parsedRef = useRef<{ upTo: number; blocks: TerminalBlock[] }>({ upTo: 0, blocks: [] });
@@ -47,7 +51,13 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
     cached.blocks = cached.blocks.slice(-MAX_BLOCKS);
   }
 
-  const blocks = cached.blocks;
+  const allBlocks = cached.blocks;
+
+  // In simple mode, filter out technical blocks (tool calls, system, errors, raw)
+  const blocks = useMemo(
+    () => (simpleMode ? allBlocks.filter((b) => SIMPLE_MODE_KINDS.has(b.kind)) : allBlocks),
+    [simpleMode, allBlocks],
+  );
 
   // followOutput keeps scroll pinned to the bottom when new items arrive,
   // but only if the user hasn't manually scrolled up.
@@ -57,25 +67,52 @@ export function AgentTerminal({ events }: AgentTerminalProps) {
 
   return (
     <div
-      className="terminal flex-1 overflow-hidden bg-zinc-950"
+      className="terminal flex-1 overflow-hidden bg-zinc-950 flex flex-col"
       role="log"
       aria-live="polite"
       aria-label="Agent terminal output"
     >
-      {blocks.length === 0 ? (
-        <p className="text-zinc-400 text-sm italic p-4">Waiting for output...</p>
-      ) : (
-        <Virtuoso
-          ref={virtuosoRef}
-          data={blocks}
-          followOutput={followOutput}
-          overscan={200}
-          initialTopMostItemIndex={blocks.length - 1}
-          className="h-full"
-          itemContent={renderBlock}
-          components={virtuosoComponents}
-        />
-      )}
+      {/* Simple / Detailed view toggle */}
+      <div className="flex items-center justify-end px-4 py-1.5 border-b border-zinc-800/50 bg-zinc-900/30 shrink-0">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={simpleMode}
+          onClick={() => setSimpleMode((prev) => !prev)}
+          className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+          aria-label="Simple output mode"
+        >
+          <span className={simpleMode ? "text-zinc-500" : "text-zinc-200 font-medium"}>Detailed</span>
+          <span
+            className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${simpleMode ? "bg-emerald-600" : "bg-zinc-700"}`}
+          >
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full bg-white transition-transform ${simpleMode ? "translate-x-3.5" : "translate-x-1"}`}
+            />
+          </span>
+          <span className={simpleMode ? "text-zinc-200 font-medium" : "text-zinc-500"}>Simple</span>
+        </button>
+      </div>
+
+      {/* Terminal content */}
+      <div className="flex-1 overflow-hidden">
+        {blocks.length === 0 ? (
+          <p className="text-zinc-400 text-sm italic p-4">
+            {simpleMode && allBlocks.length > 0 ? "No conversation messages yet..." : "Waiting for output..."}
+          </p>
+        ) : (
+          <Virtuoso
+            ref={virtuosoRef}
+            data={blocks}
+            followOutput={followOutput}
+            overscan={200}
+            initialTopMostItemIndex={blocks.length - 1}
+            className="h-full"
+            itemContent={renderBlock}
+            components={virtuosoComponents}
+          />
+        )}
+      </div>
     </div>
   );
 }
