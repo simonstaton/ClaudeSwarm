@@ -6,6 +6,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { promisify } from "node:util";
 import type { CostTracker } from "./cost-tracker";
+import { logger } from "./logger";
 import {
   ALLOWED_MODELS,
   DEFAULT_MODEL,
@@ -132,7 +133,7 @@ function cleanupAllProcesses(): void {
       }
     }
     if (killed > 0) {
-      console.log(`[kill-switch] cleanupAllProcesses: killed ${killed} process(es)`);
+      logger.info(`[kill-switch] cleanupAllProcesses: killed ${killed} process(es)`);
     }
   } catch {
     // ps not available - skip
@@ -190,7 +191,7 @@ export class AgentManager {
     const states = loadAllAgentStates();
     if (states.length === 0) return;
 
-    console.log(`[restore] Found ${states.length} persisted agent state(s)`);
+    logger.info(`[restore] Found ${states.length} persisted agent state(s)`);
     for (const agent of states) {
       // Skip if already in memory (shouldn't happen on fresh start, but be safe)
       if (this.agents.has(agent.id)) continue;
@@ -221,7 +222,7 @@ export class AgentManager {
         eventBufferTotal: 0,
       };
       this.agents.set(agent.id, agentProc);
-      console.log(`[restore] Restored agent ${agent.name} (${agent.id.slice(0, 8)}) — status: ${agent.status}`);
+      logger.info(`[restore] Restored agent ${agent.name} — status: ${agent.status}`, { agentId: agent.id });
     }
   }
 
@@ -843,7 +844,7 @@ export class AgentManager {
       try {
         listener({ type: "destroyed" });
       } catch (err: unknown) {
-        console.warn("[agents] Listener error during destroy:", errorMessage(err));
+        logger.warn("[agents] Listener error during destroy", { error: errorMessage(err) });
       }
     }
     agentProc.listeners.clear();
@@ -855,20 +856,20 @@ export class AgentManager {
       await unlink(workingMemoryPath);
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-        console.warn(`[agents] Failed to remove working memory for ${agentProc.agent.name}:`, errorMessage(err));
+        logger.warn(`[agents] Failed to remove working memory for ${agentProc.agent.name}`, { error: errorMessage(err), agentId: agentProc.agent.id });
       }
     }
 
     try {
       await rm(agentProc.agent.workspaceDir, { recursive: true, force: true });
     } catch (err: unknown) {
-      console.warn(`[agents] Failed to remove workspace for ${id.slice(0, 8)}:`, errorMessage(err));
+      logger.warn("[agents] Failed to remove workspace", { error: errorMessage(err), agentId: id });
     }
     await cleanupAgentClaudeData(agentProc.agent.workspaceDir);
     try {
       await unlink(path.join(EVENTS_DIR, `${id}.jsonl`));
     } catch (err: unknown) {
-      console.warn(`[agents] Failed to remove event file for ${id.slice(0, 8)}:`, errorMessage(err));
+      logger.warn("[agents] Failed to remove event file", { error: errorMessage(err), agentId: id });
     }
     await removeAgentState(id);
     this.writeQueues.delete(id);
@@ -898,7 +899,7 @@ export class AgentManager {
     clearInterval(this.flushInterval);
     clearInterval(this.watchdogInterval);
 
-    console.log("[kill-switch] emergencyDestroyAll - starting nuclear shutdown");
+    logger.info("[kill-switch] emergencyDestroyAll - starting nuclear shutdown");
 
     // Clear all idle listeners to prevent auto-delivery from re-triggering agent runs
     this.idleListeners.clear();
@@ -957,10 +958,10 @@ export class AgentManager {
     // Second pass at +500ms to catch anything spawned mid-kill
     setTimeout(() => {
       cleanupAllProcesses();
-      console.log("[kill-switch] Second cleanup pass complete");
+      logger.info("[kill-switch] Second cleanup pass complete");
     }, 500).unref();
 
-    console.log("[kill-switch] emergencyDestroyAll complete");
+    logger.info("[kill-switch] emergencyDestroyAll complete");
   }
 
   /** Graceful shutdown: flush state and kill processes, but preserve state files for restore. */
@@ -1243,7 +1244,7 @@ export class AgentManager {
       const next = prev
         .then(() =>
           appendFile(filePath, batch).catch((err: unknown) => {
-            console.warn(`[agents] Failed to persist events for ${id}:`, errorMessage(err));
+            logger.warn("[agents] Failed to persist events", { agentId: id, error: errorMessage(err) });
           }),
         )
         .then(() => {
@@ -1263,7 +1264,7 @@ export class AgentManager {
           try {
             listener(event);
           } catch (err: unknown) {
-            console.warn("[agents] Listener error:", errorMessage(err));
+            logger.warn("[agents] Listener error", { error: errorMessage(err) });
           }
         }
       }
@@ -1328,7 +1329,7 @@ export class AgentManager {
 
       return events;
     } catch (err: unknown) {
-      console.warn(`[agents] Failed to read persisted events for ${id.slice(0, 8)}:`, errorMessage(err));
+      logger.warn("[agents] Failed to read persisted events", { agentId: id, error: errorMessage(err) });
       return [];
     }
   }
@@ -1342,13 +1343,13 @@ export class AgentManager {
       // Paused agents get an extended 24-hour TTL instead of indefinite exemption
       if (agentProc.agent.status === "paused") {
         if (now - lastActivity > AgentManager.PAUSED_TTL_MS) {
-          console.log(`Cleaning up paused agent ${id} (exceeded 24h TTL)`);
+          logger.info("Cleaning up paused agent (exceeded 24h TTL)", { agentId: id });
           this.destroy(id);
         }
         continue;
       }
       if (now - lastActivity > SESSION_TTL_MS) {
-        console.log(`Cleaning up expired agent ${id}`);
+        logger.info("Cleaning up expired agent", { agentId: id });
         this.destroy(id);
       }
     }
@@ -1366,7 +1367,7 @@ export class AgentManager {
       try {
         listener(id);
       } catch (err: unknown) {
-        console.warn("[agents] Idle listener error:", errorMessage(err));
+        logger.warn("[agents] Idle listener error", { error: errorMessage(err) });
       }
     }
   }
@@ -1391,9 +1392,7 @@ export class AgentManager {
       //    proc.killed is unreliable (only set if WE killed it).
       if (proc && proc.exitCode !== null && agent.status === "running") {
         const exitCode = proc.exitCode;
-        console.warn(
-          `[watchdog] Dead process detected for agent ${agent.name} (${id.slice(0, 8)}), exit code ${exitCode}`,
-        );
+        logger.warn("[watchdog] Dead process detected", { agentId: id, agentName: agent.name, exitCode });
         agent.status = exitCode === 0 ? "idle" : "error";
         agent.lastActivity = new Date().toISOString();
         saveAgentState(agent);
@@ -1413,7 +1412,7 @@ export class AgentManager {
       if (agent.status === "starting") {
         const createdAt = new Date(agent.createdAt).getTime();
         if (now - createdAt > AgentManager.START_TIMEOUT_MS) {
-          console.warn(`[watchdog] Start timeout for agent ${agent.name} (${id.slice(0, 8)})`);
+          logger.warn("[watchdog] Start timeout", { agentId: id, agentName: agent.name });
           agent.status = "error";
           agent.lastActivity = new Date().toISOString();
           saveAgentState(agent);
@@ -1434,9 +1433,11 @@ export class AgentManager {
           agentProc.stallCount++;
           if (agentProc.stallCount >= AgentManager.MAX_STALL_COUNT) {
             // Too many consecutive stalls - escalate to error
-            console.warn(
-              `[watchdog] Agent ${agent.name} (${id.slice(0, 8)}) stalled ${AgentManager.MAX_STALL_COUNT} times - marking as error`,
-            );
+            logger.warn("[watchdog] Agent stalled too many times - marking as error", {
+              agentId: id,
+              agentName: agent.name,
+              stallCount: AgentManager.MAX_STALL_COUNT,
+            });
             agent.status = "error";
             saveAgentState(agent);
             this.handleEvent(id, {
@@ -1445,9 +1446,12 @@ export class AgentManager {
               message: `Agent stalled ${AgentManager.MAX_STALL_COUNT} consecutive times. Marked as error.`,
             });
           } else {
-            console.warn(
-              `[watchdog] Stall detected for agent ${agent.name} (${id.slice(0, 8)}) - no output for 10+ minutes (stall ${agentProc.stallCount}/${AgentManager.MAX_STALL_COUNT})`,
-            );
+            logger.warn("[watchdog] Stall detected - no output for 10+ minutes", {
+              agentId: id,
+              agentName: agent.name,
+              stallCount: agentProc.stallCount,
+              maxStallCount: AgentManager.MAX_STALL_COUNT,
+            });
             agent.status = "stalled";
             saveAgentState(agent);
             this.handleEvent(id, {
@@ -1488,11 +1492,9 @@ export class AgentManager {
           const tmpPath = `${filePath}.tmp.${Date.now()}`;
           await writeFile(tmpPath, `${trimmed.join("\n")}\n`);
           await rename(tmpPath, filePath);
-          console.log(
-            `[agents] Truncated event file for ${id.slice(0, 8)}: ${lines.length} -> ${trimmed.length} events`,
-          );
+          logger.info("[agents] Truncated event file", { agentId: id, before: lines.length, after: trimmed.length });
         } catch (err: unknown) {
-          console.warn(`[agents] Failed to truncate events for ${id}:`, errorMessage(err));
+          logger.warn("[agents] Failed to truncate events", { agentId: id, error: errorMessage(err) });
         }
       });
       this.writeQueues.set(id, next);

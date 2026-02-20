@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import express from "express";
+import { logger } from "./src/logger";
 import { AgentManager } from "./src/agents";
 import { authMiddleware } from "./src/auth";
 import { corsMiddleware } from "./src/cors";
@@ -126,7 +127,7 @@ const orchestrator = new Orchestrator(
         content: `[Task Assignment: ${taskMessage.taskId.slice(0, 8)}]\nType: ${taskMessage.type}\n${taskMessage.successCriteria ? `Acceptance Criteria: ${taskMessage.successCriteria}\n` : ""}${taskMessage.input ? `Input: ${JSON.stringify(taskMessage.input)}\n` : ""}${taskMessage.timeoutMs ? `Timeout: ${taskMessage.timeoutMs}ms` : ""}`,
         metadata: { taskMessage },
       });
-      console.log(`[orchestrator] Sent ${taskMessage.type} to ${agentName} for task ${taskMessage.taskId.slice(0, 8)}`);
+      logger.info(`[orchestrator] Sent ${taskMessage.type} to ${agentName}`, { agentId, taskId: taskMessage.taskId });
     },
     sendNotification: (agentId, content) => {
       messageBus.post({
@@ -157,10 +158,8 @@ let keepAliveInterval: ReturnType<typeof setInterval> | null = null;
 
 function startKeepAlive() {
   if (keepAliveInterval) return;
-  console.log("[keepalive] Starting - agents exist, keeping instance alive");
-  fetch(`http://localhost:${KEEPALIVE_PORT}/api/health`).catch((err) => {
-    console.warn("[keepalive] Initial health check failed:", err instanceof Error ? err.message : String(err));
-  });
+  logger.info("[keepalive] Starting - agents exist, keeping instance alive");
+  fetch(`http://localhost:${KEEPALIVE_PORT}/api/health`).catch(() => {});
   keepAliveInterval = setInterval(async () => {
     if (agentManager.list().length === 0) {
       stopKeepAlive();
@@ -169,14 +168,14 @@ function startKeepAlive() {
     try {
       await fetch(`http://localhost:${KEEPALIVE_PORT}/api/health`);
     } catch (err) {
-      console.warn("[keepalive] Health check failed:", err instanceof Error ? err.message : String(err));
+      logger.warn("[keepalive] Health check failed", { error: err instanceof Error ? err.message : String(err) });
     }
   }, 60_000); // every 60 seconds - well within Cloud Run's ~15min idle timeout
 }
 
 function stopKeepAlive() {
   if (!keepAliveInterval) return;
-  console.log("[keepalive] Stopping - no agents, allowing scale-to-zero");
+  logger.info("[keepalive] Stopping - no agents, allowing scale-to-zero");
   clearInterval(keepAliveInterval);
   keepAliveInterval = null;
 }
@@ -233,11 +232,11 @@ messageBus.subscribe((msg) => {
 
     try {
       messageBus.markRead(msg.id, msg.to);
-      console.log(`[auto-deliver] INTERRUPTING busy agent ${msg.to.slice(0, 8)} with message from ${sender}`);
+      logger.info("[auto-deliver] INTERRUPTING busy agent", { agentId: msg.to, sender });
       agentManager.message(msg.to, prompt);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      console.warn(`[auto-deliver] Failed to interrupt agent ${msg.to.slice(0, 8)}: ${errMsg}`);
+      logger.warn("[auto-deliver] Failed to interrupt agent", { agentId: msg.to, error: errMsg });
     }
     return;
   }
@@ -251,11 +250,11 @@ messageBus.subscribe((msg) => {
   try {
     // Mark as read before delivering so the idle handler doesn't re-deliver it
     messageBus.markRead(msg.id, msg.to);
-    console.log(`[auto-deliver] Delivering ${msg.type} from ${sender} to agent ${msg.to.slice(0, 8)}`);
+    logger.info("[auto-deliver] Delivering message", { agentId: msg.to, sender, msgType: msg.type });
     agentManager.message(msg.to, prompt);
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.warn(`[auto-deliver] Failed to deliver message to ${msg.to.slice(0, 8)}: ${errMsg}`);
+    logger.warn("[auto-deliver] Failed to deliver message", { agentId: msg.to, error: errMsg });
   } finally {
     agentManager.deliveryDone(msg.to);
   }
@@ -299,13 +298,11 @@ agentManager.onIdle((agentId) => {
     const prompt = formatDeliveryPrompt(`[Message from ${sender} - type: ${next.type}]`, next.content, next.from);
 
     try {
-      console.log(
-        `[auto-deliver] Delivering queued ${next.type} from ${sender} to now-idle agent ${agentId.slice(0, 8)}`,
-      );
+      logger.info("[auto-deliver] Delivering queued message to now-idle agent", { agentId, sender, msgType: next.type });
       agentManager.message(agentId, prompt);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      console.warn(`[auto-deliver] Failed to deliver queued message to ${agentId.slice(0, 8)}: ${errMsg}`);
+      logger.warn("[auto-deliver] Failed to deliver queued message", { agentId, error: errMsg });
     } finally {
       agentManager.deliveryDone(agentId);
     }
@@ -346,11 +343,14 @@ const memoryMonitorInterval = setInterval(() => {
   const pct = containerMem / MEMORY_LIMIT_BYTES;
   if (pct > MEMORY_WARN_THRESHOLD) {
     const limitGi = MEMORY_LIMIT_BYTES / 1024 / 1024 / 1024;
-    console.warn(
-      `[memory] WARNING: container ${(containerMem / 1024 / 1024).toFixed(0)}MB (${(pct * 100).toFixed(1)}% of ${limitGi}Gi limit) - ` +
-        `heap ${(heapUsed / 1024 / 1024).toFixed(0)}/${(heapTotal / 1024 / 1024).toFixed(0)}MB - ` +
-        `agents: ${agentManager.list().length}`,
-    );
+    logger.warn("[memory] WARNING: container memory high", {
+      containerMb: Math.round(containerMem / 1024 / 1024),
+      limitGib: limitGi,
+      usagePct: Number((pct * 100).toFixed(1)),
+      heapUsedMb: Math.round(heapUsed / 1024 / 1024),
+      heapTotalMb: Math.round(heapTotal / 1024 / 1024),
+      agentCount: agentManager.list().length,
+    });
   }
 }, 60_000);
 memoryMonitorInterval.unref();
@@ -384,7 +384,7 @@ function cleanupOrphanedProcesses(): void {
       }
     }
     if (killed > 0) {
-      console.log(`[cleanup] Killed ${killed} orphaned claude process(es)`);
+      logger.info(`[cleanup] Killed ${killed} orphaned claude process(es)`);
     }
   } catch {
     // ps not available or failed - skip
@@ -409,7 +409,7 @@ function cleanupStaleWorkspaces(manager: AgentManager): void {
       }
     }
     if (cleaned > 0) {
-      console.log(`[cleanup] Removed ${cleaned} stale workspace director${cleaned === 1 ? "y" : "ies"}`);
+      logger.info(`[cleanup] Removed ${cleaned} stale workspace director${cleaned === 1 ? "y" : "ies"}`);
     }
   } catch {
     // /tmp not readable - skip
@@ -431,7 +431,7 @@ function cleanupStaleWorkspaces(manager: AgentManager): void {
       }
     }
     if (cleanedWm > 0) {
-      console.log(`[cleanup] Removed ${cleanedWm} orphaned working-memory file(s)`);
+      logger.info(`[cleanup] Removed ${cleanedWm} orphaned working-memory file(s)`);
     }
   } catch {
     // shared-context not readable - skip
@@ -444,7 +444,7 @@ async function start() {
   // Start listening IMMEDIATELY so the startup probe passes while we recover.
   // GCS sync and agent restoration happen in the background.
   const server = app.listen(PORT, () => {
-    console.log(`ClaudeSwarm listening on :${PORT}`);
+    logger.info(`ClaudeSwarm listening on :${PORT}`);
   });
 
   let tokenRefreshInterval: ReturnType<typeof setInterval>;
@@ -452,7 +452,7 @@ async function start() {
   let stopGcsPoll: () => void = () => {};
 
   const shutdown = async () => {
-    console.log("Shutting down...");
+    logger.info("Shutting down...");
     stopGcsPoll();
     clearInterval(tokenRefreshInterval);
     clearInterval(worktreeGCInterval);
@@ -532,11 +532,11 @@ async function start() {
     const wasKilled = await loadPersistedState();
     if (wasKilled) {
       agentManager.killed = true;
-      console.log("[kill-switch] Kill switch was active on startup - agent restoration skipped");
+      logger.info("[kill-switch] Kill switch was active on startup - agent restoration skipped");
     }
 
     if (hasTombstone()) {
-      console.log("[kill-switch] Tombstone present - skipping all agent restoration");
+      logger.info("[kill-switch] Tombstone present - skipping all agent restoration");
     }
 
     cleanupStaleState();
@@ -567,7 +567,7 @@ async function start() {
     worktreeGCInterval = startWorktreeGC(() => agentManager.getActiveWorkspaceDirs());
 
     stopGcsPoll = startGcsKillSwitchPoll(async () => {
-      console.log("[kill-switch] Remote activation via GCS - running emergency shutdown");
+      logger.info("[kill-switch] Remote activation via GCS - running emergency shutdown");
       agentManager.emergencyDestroyAll();
       const { rotateJwtSecret } = await import("./src/auth");
       rotateJwtSecret();
@@ -590,7 +590,7 @@ async function start() {
         if (agent?.claudeSessionId) {
           agentManager.message(agentId, prompt);
         } else {
-          console.warn(`[scheduler] Cannot wake agent ${agentId.slice(0, 8)} - no session`);
+          logger.warn("[scheduler] Cannot wake agent - no session", { agentId });
         }
       },
       checkHealth: async () => {
@@ -601,15 +601,15 @@ async function start() {
     });
     scheduler.start();
 
-    console.log("[startup] Recovery complete");
+    logger.info("[startup] Recovery complete");
   } catch (err: unknown) {
-    console.error("[startup] Recovery failed:", err instanceof Error ? err.message : String(err));
+    logger.error("[startup] Recovery failed", { error: err instanceof Error ? err.message : String(err) });
   } finally {
     recovering = false;
   }
 }
 
 start().catch((err) => {
-  console.error("Failed to start:", err);
+  logger.error("Failed to start", { error: err instanceof Error ? err.message : String(err) });
   process.exit(1);
 });

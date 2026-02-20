@@ -1,6 +1,7 @@
 import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
 import { MAX_BATCH_SIZE } from "../guardrails";
+import { logger } from "../logger";
 import type { MessageBus } from "../messages";
 import type { AuthenticatedRequest, StreamEvent } from "../types";
 import { param, queryString } from "../utils/express";
@@ -166,12 +167,12 @@ export function createAgentsRouter(
         fullPrompt = promptText ? promptText + suffix : suffix.trimStart();
       }
 
-      console.log(`[message] Agent ${agentId}, prompt: "${fullPrompt.slice(0, 80)}"`);
+      logger.info("[message] Sending message to agent", { agentId, promptSnippet: fullPrompt.slice(0, 80) });
       const { agent: updatedAgent, subscribe } = agentManager.message(agentId, fullPrompt, maxTurns, sessionId);
       setupSSE(res, updatedAgent.id, subscribe);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to send message";
-      console.error(`[message] Error: ${message}`);
+      logger.error("[message] Error sending message to agent", { error: message });
       const status = message === "Agent not found" ? 404 : 400;
       res.status(status).json({ error: message });
     }
@@ -328,7 +329,7 @@ export function createAgentsRouter(
           agentManager.destroy(child.id);
           messageBus.cleanupForAgent(child.id);
         } catch (err: unknown) {
-          console.warn(`[agents] Failed to destroy child agent ${child.id.slice(0, 8)}:`, err);
+          logger.warn("[agents] Failed to destroy child agent", { agentId: child.id, error: String(err) });
         }
       }
 
@@ -343,7 +344,7 @@ export function createAgentsRouter(
         res.status(404).json({ error: "Agent not found" });
       }
     } catch (err: unknown) {
-      console.error(`[agents] Error destroying agent ${id.slice(0, 8)}:`, err);
+      logger.error("[agents] Error destroying agent", { agentId: id, error: String(err) });
       res.status(500).json({ error: "Failed to destroy agent" });
     }
   });
