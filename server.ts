@@ -20,8 +20,10 @@ import { createHealthRouter } from "./src/routes/health";
 import { createKillSwitchRouter } from "./src/routes/kill-switch";
 import { createMcpRouter } from "./src/routes/mcp";
 import { createMessagesRouter } from "./src/routes/messages";
+import { createSchedulerRouter } from "./src/routes/scheduler";
 import { createTasksRouter } from "./src/routes/tasks";
 import { createUsageRouter } from "./src/routes/usage";
+import { Scheduler } from "./src/scheduler";
 import {
   cleanupClaudeHome,
   ensureDefaultContextFiles,
@@ -117,6 +119,7 @@ const messageBus = new MessageBus();
 const costTracker = new CostTracker();
 const agentManager = new AgentManager({ costTracker });
 const taskGraph = new TaskGraph();
+const scheduler = new Scheduler();
 const gradeStore = new GradeStore();
 
 const orchestrator = new Orchestrator(
@@ -214,6 +217,7 @@ app.use(createContextRouter());
 app.use(createMcpRouter());
 app.use(createCostRouter(agentManager, costTracker));
 app.use(createTasksRouter(taskGraph, orchestrator, gradeStore));
+app.use(createSchedulerRouter(scheduler));
 // Layer 1: Kill switch endpoint (no extra auth beyond authMiddleware above)
 app.use(createKillSwitchRouter(agentManager));
 
@@ -470,6 +474,7 @@ async function start() {
     agentManager.dispose();
     costTracker.close();
     taskGraph.close();
+    scheduler.close();
     stopPeriodicSync();
     await syncToGCS();
     server.close(() => process.exit(0));
@@ -531,6 +536,31 @@ async function start() {
 
     // Start the orchestrator's assignment loop
     orchestrator.start();
+
+    // Wire scheduler execution context and start
+    scheduler.setExecutionContext({
+      sendWebhook: async (url, body) => {
+        await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      },
+      wakeAgent: (agentId, prompt) => {
+        const agent = agentManager.get(agentId);
+        if (agent?.claudeSessionId) {
+          agentManager.message(agentId, prompt);
+        } else {
+          console.warn(`[scheduler] Cannot wake agent ${agentId.slice(0, 8)} - no session`);
+        }
+      },
+      checkHealth: async () => {
+        const agents = agentManager.list();
+        const errorCount = agents.filter((a) => a.status === "error").length;
+        return { healthy: errorCount === 0, details: `${agents.length} agents, ${errorCount} in error state` };
+      },
+    });
+    scheduler.start();
 
     console.log("[startup] Recovery complete");
   } catch (err: unknown) {
