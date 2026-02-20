@@ -134,6 +134,13 @@ if [ -d /persistent ] && mountpoint -q /persistent 2>/dev/null; then
   pnpm config set store-dir /persistent/pnpm-store --global 2>/dev/null \
     && echo "pnpm store configured at /persistent/pnpm-store" || true
 
+  # Ensure npm cache dir is agent-owned (root may create it; agents need write
+  # access). Also redirect npm cache to /tmp to avoid GCSFuse EMFILE/EPERM
+  # errors that occur when npm tries to do concurrent renames on GCSFuse.
+  chown -R agent:agent /persistent/npm-cache 2>/dev/null || true
+  npm config set cache /tmp/npm-cache --global 2>/dev/null || true \
+    && echo "npm cache redirected to /tmp/npm-cache"
+
   # NOTE: /persistent/tools/ auto-shimming has been removed (Layer 7 security hardening).
   # Agents could write malicious scripts to /persistent/tools/ that would be auto-executed
   # as shims on the next container start, creating a persistence backdoor. If persistent
