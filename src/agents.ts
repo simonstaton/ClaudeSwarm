@@ -460,10 +460,7 @@ export class AgentManager {
         this.attachProcessHandlers(id, ap, proc);
       });
     const lockPromise = spawnAfterKill.catch((err) => {
-      console.error(
-        `[agents] Error spawning agent ${id.slice(0, 8)}:`,
-        err instanceof Error ? err.message : String(err),
-      );
+      logger.error("[agents] Error spawning agent", { agentId: id, error: errorMessage(err) });
     });
     this.lifecycleLocks.set(id, lockPromise);
     // Clean up the lock entry once the spawn completes so the watchdog can monitor this agent
@@ -831,10 +828,7 @@ export class AgentManager {
     this.lifecycleLocks.set(
       id,
       destroyOp.catch((err) => {
-        console.error(
-          `[agents] Error destroying agent ${id.slice(0, 8)}:`,
-          err instanceof Error ? err.message : String(err),
-        );
+        logger.error("[agents] Error destroying agent", { agentId: id, error: errorMessage(err) });
       }),
     );
 
@@ -973,16 +967,10 @@ export class AgentManager {
       // (nuclear kill path) so we don't await, but must use .catch() since
       // removeAgentState is async and try/catch won't catch promise rejections.
       removeAgentState(id).catch((err) => {
-        console.error(
-          `[agents] Failed to remove state for agent ${id.slice(0, 8)}:`,
-          err instanceof Error ? err.message : String(err),
-        );
+        logger.error("[agents] Failed to remove state for agent", { agentId: id, error: errorMessage(err) });
       });
       unlink(path.join(EVENTS_DIR, `${id}.jsonl`)).catch((err) => {
-        console.error(
-          `[agents] Failed to remove events file for agent ${id.slice(0, 8)}:`,
-          err instanceof Error ? err.message : String(err),
-        );
+        logger.error("[agents] Failed to remove events file for agent", { agentId: id, error: errorMessage(err) });
       });
     }
 
@@ -1087,10 +1075,7 @@ export class AgentManager {
         saveAgentState(ap.agent);
       }
       debouncedSyncToGCS().catch((err) => {
-        console.error(
-          `[agents] Failed to sync GCS after agent ${id.slice(0, 8)} exit:`,
-          err instanceof Error ? err.message : String(err),
-        );
+        logger.error("[agents] Failed to sync GCS after agent exit", { agentId: id, error: errorMessage(err) });
       });
 
       // Notify idle listeners so queued messages can be delivered
