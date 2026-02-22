@@ -38,3 +38,7 @@ terraform/terraform.tfvars
 
 # Runtime
 shared-context/
+persistent/
+
+# Docker
+docker-compose.override.yml
