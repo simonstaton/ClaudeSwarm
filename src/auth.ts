@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
+import { isExemptFromAuth } from "./exempt-paths";
 import { logger } from "./logger";
 import { resetSanitizeCache } from "./sanitize";
 import type { AuthenticatedRequest, AuthPayload } from "./types";
@@ -107,8 +108,8 @@ export function generateServiceToken(agentId?: string): string {
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
-  // Skip auth for health and token exchange
-  if (req.path === "/api/health" || req.path === "/api/auth/token") {
+  // Skip auth for health and token exchange (see src/exempt-paths.ts)
+  if (isExemptFromAuth(req.path)) {
     next();
     return;
   }

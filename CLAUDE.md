@@ -6,7 +6,7 @@ A platform for conducting autonomous agents via a web UI backed by Cloud Run. Ag
 ## Project structure
 - `server.ts` - Express server: API + static React SPA serving
 - `src/` - Server modules: agents, auth, messages, persistence, storage, validation, guardrails, sanitize, cors, worktrees, types
-- `src/routes/` - Express route handlers: agents, messages, config, context, health
+- `src/routes/` - Express route handlers: auth, agents, messages, config, context, health, cost, tasks, scheduler, workflows, repositories, kill-switch, mcp, usage
 - `src/utils/` - Utilities: SSE, Express helpers, file listing, config paths, context
 - `src/templates/` - Workspace CLAUDE.md template generation
 - `ui/` - React SPA (Vite, Tailwind v4, @fanvue/ui)
@@ -19,6 +19,8 @@ A platform for conducting autonomous agents via a web UI backed by Cloud Run. Ag
 - `Dockerfile` - Multi-stage Docker build
 - `entrypoint.sh` - Docker entrypoint (key injection, GitHub auth, MCP merge, server start)
 - `vitest.config.ts` - Test configuration
+
+For the **full module map, route table (paths + dependencies), and flow traceability**, see `docs/ARCHITECTURE.md`; keep that doc in sync when adding or changing routes.
 
 ## Local development
 ```bash

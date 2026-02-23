@@ -1,19 +1,21 @@
-import { execFileSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import express from "express";
 import { AgentManager } from "./src/agents";
 import { authMiddleware } from "./src/auth";
+import { cleanupOrphanedProcesses, cleanupStaleWorkspaces } from "./src/cleanup";
 import { corsMiddleware } from "./src/cors";
 import { CostTracker } from "./src/cost-tracker";
 import { initDepCache } from "./src/dep-cache";
+import { isExemptFromKillAndRecovery } from "./src/exempt-paths";
 import { GradeStore } from "./src/grading";
 import { isKilled, loadPersistedState, startGcsKillSwitchPoll } from "./src/kill-switch";
 import { logger } from "./src/logger";
+import { attachMessageDelivery } from "./src/message-delivery";
 import { MessageBus } from "./src/messages";
 import { Orchestrator } from "./src/orchestrator";
 import { cleanupStaleState, hasTombstone } from "./src/persistence";
 import { createAgentsRouter } from "./src/routes/agents";
+import { createAuthRouter } from "./src/routes/auth";
 import { createConfigRouter } from "./src/routes/config";
 import { createContextRouter } from "./src/routes/context";
 import { createCostRouter } from "./src/routes/cost";
@@ -36,31 +38,10 @@ import {
   syncToGCS,
 } from "./src/storage";
 import { TaskGraph } from "./src/task-graph";
-import { getContextDir } from "./src/utils/context";
 import { getContainerMemoryUsage } from "./src/utils/memory";
 import { rateLimitMiddleware } from "./src/validation";
 import { isAllowedWebhookUrl } from "./src/webhook-url";
 import { startWorktreeGC } from "./src/worktrees";
-
-/** Format a message for auto-delivery to an agent. */
-function formatDeliveryPrompt(header: string, content: string, replyToId: string): string {
-  return `${header}\n<message-content>\n${content}\n</message-content>\n\n(Reply by sending a message back to agent ID: ${replyToId})`;
-}
-
-/** Mark read, log, and send prompt to agent. Caller must catch and call deliveryDone in finally (except for interrupt). */
-function deliverMessage(
-  bus: MessageBus,
-  manager: AgentManager,
-  agentId: string,
-  msgId: string,
-  prompt: string,
-  logMsg: string,
-  logMeta: Record<string, unknown>,
-): void {
-  bus.markRead(msgId, agentId);
-  logger.info(logMsg, logMeta);
-  manager.message(agentId, prompt);
-}
 
 let exceptionHandlersSetup = false;
 
@@ -93,14 +74,12 @@ app.use("/api/agents", express.json({ limit: "10mb" }));
 app.use(express.json({ limit: "1mb" }));
 
 // Checked BEFORE auth so even valid tokens get blocked when the switch is active.
-// Exempts: /api/kill-switch (to allow deactivation), /api/health, /api/auth/token.
 app.use((req, res, next) => {
   if (!isKilled()) {
     next();
     return;
   }
-  const exempt = ["/api/kill-switch", "/api/health", "/api/auth/token"];
-  if (exempt.some((p) => req.path === p || req.path.startsWith(p))) {
+  if (isExemptFromKillAndRecovery(req.path)) {
     next();
     return;
   }
@@ -201,11 +180,12 @@ function stopKeepAlive() {
 let recovering = true;
 
 app.use(createHealthRouter(agentManager, MEMORY_LIMIT_BYTES, () => recovering));
+app.use(createAuthRouter());
 
 // Block non-essential API calls until background recovery (GCS sync + agent
 // restoration) is complete.  Health and auth endpoints are exempt.
 app.use((req, res, next) => {
-  if (!recovering || !req.path.startsWith("/api/") || req.path === "/api/health" || req.path === "/api/auth/token") {
+  if (!recovering || !req.path.startsWith("/api/") || isExemptFromKillAndRecovery(req.path)) {
     next();
     return;
   }
@@ -226,114 +206,9 @@ app.use(createRepositoriesRouter(agentManager));
 // Layer 1: Kill switch endpoint (no extra auth beyond authMiddleware above)
 app.use(createKillSwitchRouter(agentManager));
 
-// When a message targets a specific agent that is idle, automatically resume
-// the agent with the message content so it can respond. Without this, agents
-// only see messages if they happen to poll - which they rarely do.
-messageBus.subscribe((msg) => {
-  // Only deliver targeted messages (not broadcasts) of actionable types
-  if (!msg.to) return;
-  if (msg.type === "status") return;
-
-  // Don't deliver if kill switch is active
-  if (isKilled()) return;
-
-  const sender = msg.fromName || msg.from.slice(0, 8);
-
-  // Interrupt messages bypass the idle check - they kill the running process
-  // and deliver immediately. This allows a team lead (or the platform) to
-  // redirect a busy agent without waiting for it to finish.
-  if (msg.type === "interrupt" && agentManager.canInterrupt(msg.to)) {
-    const prompt = formatDeliveryPrompt(
-      `[INTERRUPT from ${sender}] ⚠️ Your current task has been interrupted. Read and act on this message immediately:`,
-      msg.content,
-      msg.from,
-    );
-    try {
-      deliverMessage(messageBus, agentManager, msg.to, msg.id, prompt, "[auto-deliver] INTERRUPTING busy agent", {
-        agentId: msg.to,
-        sender,
-      });
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      logger.warn("[auto-deliver] Failed to interrupt agent", { agentId: msg.to, error: errMsg });
-    }
-    return;
-  }
-
-  // Don't deliver if the target agent can't receive right now.
-  // canDeliver() atomically sets a delivery lock when returning true.
-  if (!agentManager.canDeliver(msg.to)) return;
-
-  const prompt = formatDeliveryPrompt(`[Message from ${sender} - type: ${msg.type}]`, msg.content, msg.from);
-  try {
-    deliverMessage(messageBus, agentManager, msg.to, msg.id, prompt, "[auto-deliver] Delivering message", {
-      agentId: msg.to,
-      sender,
-      msgType: msg.type,
-    });
-  } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    logger.warn("[auto-deliver] Failed to deliver message", { agentId: msg.to, error: errMsg });
-  } finally {
-    agentManager.deliveryDone(msg.to);
-  }
-});
-
-// How long to wait after an agent goes idle before delivering queued messages.
-// The delay lets the agent process fully exit before a new prompt is injected.
-// Configurable via DELIVERY_SETTLE_MS env var (default: 250ms).
-const DELIVERY_SETTLE_MS = Number.parseInt(process.env.DELIVERY_SETTLE_MS ?? "250", 10);
-
-// When an agent finishes and goes idle, check if there are unread messages
-// waiting for it and deliver the oldest one. This handles messages that arrived
-// while the agent was busy.
-agentManager.onIdle((agentId) => {
-  setTimeout(() => {
-    // Skip delivery if kill switch is active
-    if (isKilled()) return;
-
-    // canDeliver() atomically sets a delivery lock when returning true,
-    // preventing concurrent onIdle + subscribe deliveries from racing.
-    if (!agentManager.canDeliver(agentId)) return;
-
-    const agent = agentManager.get(agentId);
-    if (!agent) {
-      agentManager.deliveryDone(agentId);
-      return;
-    }
-    const pending = messageBus.query({
-      to: agentId,
-      unreadBy: agentId,
-      agentRole: agent.role,
-    });
-
-    // Find the oldest actionable message (skip status messages)
-    const next = pending.find((m) => m.type !== "status");
-    if (!next) {
-      agentManager.deliveryDone(agentId);
-      return;
-    }
-
-    const sender = next.fromName || next.from.slice(0, 8);
-    const prompt = formatDeliveryPrompt(`[Message from ${sender} - type: ${next.type}]`, next.content, next.from);
-    try {
-      deliverMessage(
-        messageBus,
-        agentManager,
-        agentId,
-        next.id,
-        prompt,
-        "[auto-deliver] Delivering queued message to now-idle agent",
-        { agentId, sender, msgType: next.type },
-      );
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      logger.warn("[auto-deliver] Failed to deliver queued message", { agentId, error: errMsg });
-    } finally {
-      agentManager.deliveryDone(agentId);
-    }
-  }, DELIVERY_SETTLE_MS);
-});
+// Auto-deliver messages to idle agents (and interrupt busy ones for "interrupt" type). See src/message-delivery.ts.
+const deliverySettleMs = Number.parseInt(process.env.DELIVERY_SETTLE_MS ?? "250", 10);
+attachMessageDelivery(messageBus, agentManager, { isKilled, deliverySettleMs });
 
 const uiDistPath = path.join(__dirname, "ui", "dist");
 app.use(express.static(uiDistPath));
@@ -381,81 +256,6 @@ const memoryMonitorInterval = setInterval(() => {
   }
 }, 60_000);
 memoryMonitorInterval.unref();
-
-/** Kill orphaned `claude` processes left over from a previous container run.
- *  After a non-graceful restart, child processes may still be running under
- *  the same PID namespace (Cloud Run reuses the sandbox). We kill any `claude`
- *  processes that aren't children of the current server process. */
-function cleanupOrphanedProcesses(): void {
-  try {
-    const myPid = process.pid;
-    const output = execFileSync("ps", ["-eo", "pid,ppid,comm"], {
-      encoding: "utf-8",
-      timeout: 5_000,
-    });
-    let killed = 0;
-    for (const line of output.split("\n")) {
-      const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
-      if (!match) continue;
-      const [, pidStr, ppidStr, comm] = match;
-      const pid = Number.parseInt(pidStr, 10);
-      const ppid = Number.parseInt(ppidStr, 10);
-      // Kill claude processes that are NOT children of the current server
-      if (comm.trim() === "claude" && ppid !== myPid && pid !== myPid) {
-        try {
-          process.kill(pid, "SIGTERM");
-          killed++;
-        } catch {
-          // Process may have already exited
-        }
-      }
-    }
-    if (killed > 0) {
-      logger.info(`[cleanup] Killed ${killed} orphaned claude process(es)`);
-    }
-  } catch {
-    // ps not available or failed - skip
-  }
-}
-
-/** Remove stale /tmp/workspace-* directories that don't belong to any restored agent. */
-function cleanupStaleWorkspaces(manager: AgentManager): void {
-  try {
-    const activeWorkspaces = manager.getActiveWorkspaceDirs();
-    const entries = fs.readdirSync("/tmp").filter((f) => f.startsWith("workspace-"));
-    let cleaned = 0;
-    for (const entry of entries) {
-      const fullPath = `/tmp/${entry}`;
-      if (!activeWorkspaces.has(fullPath)) {
-        try {
-          fs.rmSync(fullPath, { recursive: true, force: true });
-          cleaned++;
-        } catch {}
-      }
-    }
-    if (cleaned > 0) {
-      logger.info(`[cleanup] Removed ${cleaned} stale workspace director${cleaned === 1 ? "y" : "ies"}`);
-    }
-  } catch {
-    // /tmp not readable - skip
-  }
-
-  // Remove any leftover working-memory-*.md files (feature removed)
-  try {
-    const contextDir = getContextDir();
-    const wmFiles = fs.readdirSync(contextDir).filter((f) => f.startsWith("working-memory-") && f.endsWith(".md"));
-    for (const file of wmFiles) {
-      try {
-        fs.unlinkSync(path.join(contextDir, file));
-      } catch {}
-    }
-    if (wmFiles.length > 0) {
-      logger.info(`[cleanup] Removed ${wmFiles.length} stale working-memory file(s)`);
-    }
-  } catch {
-    // shared-context not readable - skip
-  }
-}
 
 async function start() {
   const PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
