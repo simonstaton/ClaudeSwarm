@@ -47,6 +47,9 @@ export function AgentTerminal({ events, scrollToBottomTrigger }: AgentTerminalPr
   const MAX_BLOCKS = 2000;
   const [allBlocks, setAllBlocks] = useState<TerminalBlock[]>([]);
   const parsedUpToRef = useRef(0);
+  // Depend on events.length so we re-run when events are appended to the stable ref.
+  // useAgentStream exposes events as eventsRef.current (same reference); only
+  // setEventCount triggers re-renders, so [events] alone would never change.
   useEffect(() => {
     if (events.length < parsedUpToRef.current) {
       parsedUpToRef.current = 0;
@@ -60,7 +63,7 @@ export function AgentTerminal({ events, scrollToBottomTrigger }: AgentTerminalPr
       const next = deduplicateResultBlocks(prev.concat(newBlocks));
       return next.length > MAX_BLOCKS ? next.slice(-MAX_BLOCKS) : next;
     });
-  }, [events]);
+  }, [events, events.length]);
 
   // In simple mode, filter out technical blocks (tool calls, system, errors, raw)
   const blocks = useMemo(
