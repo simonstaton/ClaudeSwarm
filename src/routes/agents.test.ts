@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
  *   const promptText = typeof prompt === "string" ? prompt : "";
  *   fullPrompt = promptText ? promptText + suffix : suffix.trimStart();
  */
-
 function buildFullPrompt(prompt: unknown, suffix: string): string {
   const promptText = typeof prompt === "string" ? prompt : "";
   let fullPrompt = promptText;

@@ -1,8 +1,8 @@
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AgentManager } from "../agents";
-import { createAuthRouter } from "../routes/auth";
-import { createHealthRouter } from "../routes/health";
+import { createAuthRouter } from "./auth";
+import { createHealthRouter } from "./health";
 
 describe("health and auth routes (integration)", () => {
   let server: ReturnType<express.Express["listen"]> | null = null;

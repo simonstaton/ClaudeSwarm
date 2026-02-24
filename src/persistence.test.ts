@@ -2,32 +2,22 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Agent, AgentStatus } from "./types";
 
-// We need to control the STATE_DIR and EVENTS_DIR used by persistence.ts.
-// Since those are module-level constants derived from existsSync("/persistent"),
-// we use vi.mock to intercept existsSync at load time and reload the module
-// pointing to a temp directory.
-
-// Store original module paths so we can reset them
 let stateDir: string;
 let eventsDir: string;
 let testRoot: string;
 
-// We'll dynamically import persistence after setting up the mock environment
-let persistence: typeof import("../persistence");
+let persistence: typeof import("./persistence");
 
 describe("persistence", () => {
   beforeEach(async () => {
-    // Create isolated temp directories for each test
     testRoot = mkdtempSync(path.join(os.tmpdir(), "persistence-test-"));
     stateDir = path.join(testRoot, "agent-state");
     eventsDir = path.join(testRoot, "agent-events");
     mkdirSync(stateDir, { recursive: true });
     mkdirSync(eventsDir, { recursive: true });
 
-    // Mock node:fs so that STATE_DIR and EVENTS_DIR point to our temp dirs.
-    // We intercept existsSync("/persistent") to return false (so it uses /tmp paths),
-    // then redirect all path.join(STATE_DIR/EVENTS_DIR, ...) calls to our temp dirs.
     vi.doMock("node:fs", async () => {
       const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
 
@@ -74,7 +64,7 @@ describe("persistence", () => {
     });
 
     vi.resetModules();
-    persistence = await import("../persistence");
+    persistence = await import("./persistence");
   });
 
   afterEach(async () => {
@@ -82,14 +72,12 @@ describe("persistence", () => {
     vi.doUnmock("node:fs/promises");
     vi.resetModules();
 
-    // Clean up temp directory
     if (testRoot && existsSync(testRoot)) {
       rmSync(testRoot, { recursive: true, force: true });
     }
   });
 
-  // Helper to build a minimal valid Agent object
-  function makeAgent(id: string, status: import("../types").AgentStatus = "idle"): import("../types").Agent {
+  function makeAgent(id: string, status: AgentStatus = "idle"): Agent {
     return {
       id,
       name: `Agent ${id}`,
@@ -107,7 +95,6 @@ describe("persistence", () => {
       const agent = makeAgent("agent-save-1");
       persistence.saveAgentState(agent);
 
-      // Wait for async write to complete (immediate for meaningful status changes)
       await new Promise((r) => setTimeout(r, 50));
 
       const filePath = path.join(stateDir, "agent-save-1.json");
@@ -122,7 +109,6 @@ describe("persistence", () => {
       const agent = makeAgent("agent-save-immediate", "idle");
       persistence.saveAgentState(agent);
 
-      // Give the async write a moment to complete
       await new Promise((r) => setTimeout(r, 50));
 
       const filePath = path.join(stateDir, "agent-save-immediate.json");
@@ -150,21 +136,17 @@ describe("persistence", () => {
     });
 
     it("debounces saves for non-meaningful status changes", async () => {
-      // First set a meaningful status so lastSavedStatus is set
       const agentIdle = makeAgent("agent-debounce", "idle");
       persistence.saveAgentState(agentIdle);
       await new Promise((r) => setTimeout(r, 50));
 
-      // Now save again with the same status (non-meaningful change) - should debounce
       const agentSame = makeAgent("agent-debounce", "idle");
       agentSame.currentTask = "doing something";
       persistence.saveAgentState(agentSame);
 
-      // File exists from the first save; the second save will come after debounce
       const filePath = path.join(stateDir, "agent-debounce.json");
       expect(existsSync(filePath)).toBe(true);
 
-      // After debounce window, updated content should be written
       await new Promise((r) => setTimeout(r, 600));
       const data = JSON.parse(require("node:fs").readFileSync(filePath, "utf-8"));
       expect(data.currentTask).toBe("doing something");
@@ -255,7 +237,6 @@ describe("persistence", () => {
       const agents = persistence.loadAllAgentStates();
       expect(agents).toHaveLength(1);
       expect(agents[0].id).toBe("valid-agent-2");
-      // Empty file should have been removed
       expect(existsSync(emptyFilePath)).toBe(false);
     });
 
@@ -263,7 +244,6 @@ describe("persistence", () => {
       const agent = makeAgent("tombstone-test");
       writeFileSync(path.join(stateDir, "tombstone-test.json"), JSON.stringify(agent), "utf-8");
 
-      // Write tombstone
       persistence.writeTombstone();
 
       const agents = persistence.loadAllAgentStates();
@@ -295,7 +275,6 @@ describe("persistence", () => {
     });
 
     it("removes orphaned event files with no matching agent state", () => {
-      // Event file with no corresponding state file
       const orphanedEvent = path.join(eventsDir, "orphan-agent.jsonl");
       writeFileSync(orphanedEvent, '{"event": "test"}\n', "utf-8");
       expect(existsSync(orphanedEvent)).toBe(true);
