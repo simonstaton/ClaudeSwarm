@@ -80,12 +80,12 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
 
   return (
     <aside
-      className="w-56 flex-shrink-0 border-r border-zinc-800 bg-zinc-900/30 flex flex-col"
+      className="w-56 flex-shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col"
       aria-label="Agent navigation"
     >
       <div className="p-3 flex-1 overflow-y-auto">
-        <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2 px-2">Agents</p>
-        {agents.length === 0 && <p className="text-xs text-zinc-400 px-2">No active agents</p>}
+        <p className="text-xs font-medium text-sidebar-foreground/70 uppercase tracking-wider mb-2 px-2">Agents</p>
+        {agents.length === 0 && <p className="text-xs text-sidebar-foreground/70 px-2">No active agents</p>}
         <nav aria-label="Agent list" className="space-y-0.5">
           {agents.map((agent) => (
             <Link
@@ -94,8 +94,8 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
               aria-current={activeId === agent.id ? "page" : undefined}
               className={`w-full flex items-start gap-2 px-3 py-2.5 rounded text-sm text-left transition-colors ${
                 activeId === agent.id
-                  ? "bg-zinc-800 text-zinc-100"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
               }`}
             >
               <span
@@ -108,16 +108,16 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
                         ? "bg-amber-500"
                         : STATUS_BADGE_VARIANT[agent.status] === "info"
                           ? "bg-blue-500"
-                          : "bg-zinc-500"
+                          : "bg-sidebar-foreground/40"
                 }`}
                 aria-hidden
               />
               <div className="min-w-0 flex-1">
                 <span className="truncate block">{agent.name}</span>
                 {agent.gitBranch && (
-                  <span className="text-[10px] font-mono text-zinc-600 truncate block">
-                    <span className="text-emerald-400/60">{agent.gitBranch}</span>
-                    {agent.gitWorktree && <span className="text-zinc-700"> wt</span>}
+                  <span className="text-[10px] font-mono text-sidebar-foreground/60 truncate block">
+                    <span className="text-emerald-500/80">{agent.gitBranch}</span>
+                    {agent.gitWorktree && <span className="text-sidebar-foreground/50"> wt</span>}
                   </span>
                 )}
               </div>
@@ -127,27 +127,35 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
       </div>
 
       {cost && (
-        <div className="border-t border-zinc-800 px-4 py-3 space-y-1.5">
+        <div className="border-t border-sidebar-border px-4 py-3 space-y-1.5">
           <div className="flex items-baseline justify-between">
-            <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Session</span>
-            <span className="text-sm font-mono font-semibold text-zinc-100">{formatCost(cost.totalCost)}</span>
+            <span className="text-[10px] font-medium text-sidebar-foreground/70 uppercase tracking-wider">Session</span>
+            <span className="text-sm font-mono font-semibold text-sidebar-foreground">
+              {formatCost(cost.totalCost)}
+            </span>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">All time</span>
+            <span className="text-[10px] font-medium text-sidebar-foreground/70 uppercase tracking-wider">
+              All time
+            </span>
             <span
               className={`text-sm font-mono font-semibold ${
-                limitExceeded ? "text-red-400" : nearLimit ? "text-amber-400" : "text-zinc-400"
+                limitExceeded ? "text-red-400" : nearLimit ? "text-amber-400" : "text-sidebar-foreground/70"
               }`}
             >
               {formatCost(cost.allTime.totalCost)}
             </span>
           </div>
-          <div className="text-[10px] text-zinc-600 font-mono">{formatTokens(cost.totalTokens)} tokens</div>
+          <div className="text-[10px] text-sidebar-foreground/60 font-mono">
+            {formatTokens(cost.totalTokens)} tokens
+          </div>
 
           {/* Spend limit */}
-          <div className="pt-1.5 border-t border-zinc-800/60">
+          <div className="pt-1.5 border-t border-sidebar-border">
             <div className="flex items-center gap-1 mb-1.5">
-              <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Spend limit</span>
+              <span className="text-[10px] font-medium text-sidebar-foreground/70 uppercase tracking-wider">
+                Spend limit
+              </span>
 
               {/* Tooltip info icon */}
               {/* biome-ignore lint/a11y/noStaticElementInteractions: tooltip wrapper delegates to inner button */}
@@ -160,14 +168,14 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
                 <button
                   type="button"
                   aria-label="About spend limit"
-                  className="w-3.5 h-3.5 rounded-full border border-zinc-600 text-zinc-500 hover:text-zinc-300 hover:border-zinc-400 flex items-center justify-center transition-colors focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                  className="w-3.5 h-3.5 rounded-full border border-sidebar-border text-sidebar-foreground/70 hover:text-sidebar-foreground hover:border-sidebar-ring flex items-center justify-center transition-colors focus:outline-none focus:ring-1 focus:ring-sidebar-ring"
                   style={{ fontSize: "8px", lineHeight: 1 }}
                 >
                   ?
                 </button>
                 {showTooltip && (
                   <div
-                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-44 rounded bg-zinc-800 border border-zinc-700 px-2.5 py-2 text-[10px] text-zinc-300 leading-relaxed shadow-lg z-50 pointer-events-none"
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-44 rounded bg-sidebar-accent border border-sidebar-border px-2.5 py-2 text-[10px] text-sidebar-accent-foreground leading-relaxed shadow-lg z-50 pointer-events-none"
                     role="tooltip"
                   >
                     Set a maximum all-time spend in USD. When reached, all running agents are automatically stopped as a
@@ -185,7 +193,7 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
             </div>
 
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-zinc-500 font-mono">$</span>
+              <span className="text-[10px] text-sidebar-foreground/70 font-mono">$</span>
               <input
                 type="number"
                 min="0.01"
@@ -199,12 +207,12 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
                 }}
                 disabled={saving}
                 aria-label="Spend limit in USD"
-                className={`flex-1 min-w-0 bg-zinc-800/60 border rounded px-1.5 py-0.5 text-[11px] font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 transition-colors disabled:opacity-50 ${
+                className={`flex-1 min-w-0 bg-sidebar-accent/50 border rounded px-1.5 py-0.5 text-[11px] font-mono text-sidebar-foreground placeholder-sidebar-foreground/50 focus:outline-none focus:ring-1 transition-colors disabled:opacity-50 ${
                   limitExceeded
                     ? "border-red-500/60 focus:ring-red-500/40"
                     : nearLimit
                       ? "border-amber-500/60 focus:ring-amber-500/40"
-                      : "border-zinc-700 focus:ring-zinc-500"
+                      : "border-sidebar-border focus:ring-sidebar-ring"
                 }`}
               />
             </div>
