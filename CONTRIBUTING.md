@@ -60,7 +60,7 @@ npm run docker:local
 
 Then open `http://localhost:8080` and log in with your `API_KEY`. Do not use `npm run setup` or `npm run dev` to run the product.
 
-For **UI development** (hot reload while editing frontend code), you may run `npm run setup` once to install deps and create shared-context, then `npm run dev` to start the dev server at `http://localhost:5173`. This is for development only and is not a supported way to run AgentManager.
+For **UI development** (hot reload while editing frontend code), you may run `npm run setup` once to install deps and create shared-context, then `npm run dev` to start the dev server at `http://localhost:3000`. This is for development only and is not a supported way to run AgentManager.
 
 ## Development workflow
 
@@ -69,7 +69,7 @@ For **UI development** (hot reload while editing frontend code), you may run `np
 | Command | Description |
 |---------|-------------|
 | `npm run docker:local` | **Run the app (supported).** Build and start via Docker at http://localhost:8080 |
-| `npm run dev` | Dev server + Vite (development only; do not use to run the product) |
+| `npm run dev` | Dev server + Next.js (development only; do not use to run the product) |
 | `npm run dev:server` | Server only (development only; do not use to run the product) |
 | `npm test` | Run all tests once |
 | `npm run test:watch` | Run tests in watch mode |
@@ -90,9 +90,9 @@ src/
   messages.ts      # MessageBus - inter-agent pub/sub
   guardrails.ts    # Safety limits (agent count, spawn depth, session TTL)
   kill-switch.ts   # Emergency stop logic
-ui/                # React SPA (Vite + Tailwind v4)
+ui/                # Next.js App Router (Tailwind v4, Radix/shadcn)
   src/
-    pages/         # Login, Dashboard, AgentView, Settings
+    app/           # Next.js App Router pages and layouts
     components/    # Reusable UI components
     hooks/         # Custom React hooks
 commands/          # Slash command skill definitions (Markdown)

@@ -550,7 +550,7 @@ commands/              # Slash command skills
   check-messages.md    # /check-messages - check message bus inbox
   send-message.md      # /send-message - post to message bus
   spawn-agent.md       # /spawn-agent - create sub-agents
-ui/                    # Next.js App Router (Tailwind v4 + @fanvue/ui)
+ui/                    # Next.js App Router (Tailwind v4, Radix/shadcn)
   src/
     app/               # Next.js App Router pages and layouts
     components/        # Header, Sidebar, AgentCard, AgentTerminal, PromptInput, MessageFeed, GraphView, TaskGraph

@@ -9,7 +9,7 @@ A platform for conducting autonomous agents via a web UI backed by Cloud Run. Ag
 - `src/routes/` - Express route handlers: auth, agents, messages, config, context, health, cost, tasks, scheduler, workflows, repositories, kill-switch, mcp, usage
 - `src/utils/` - Utilities: SSE, Express helpers, file listing, config paths, context
 - `src/templates/` - Workspace CLAUDE.md template generation
-- `ui/` - React SPA (Vite, Tailwind v4, @fanvue/ui)
+- `ui/` - React SPA (Next.js App Router, Tailwind v4, Radix/shadcn)
 - `terraform/` - GCP infrastructure (Cloud Run, GCS, Secret Manager, IAM, Cloud Monitoring alerts)
 - `mcp/` - MCP server configuration templates
 - `commands/` - Slash command skills for agents

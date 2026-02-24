@@ -1,8 +1,10 @@
 # Incident Response Runbook - AgentManager
 
-**Platform:** GCP Cloud Run · TypeScript/Express · React/Vite · Google Cloud Storage
+**Platform:** GCP Cloud Run · TypeScript/Express · React/Next.js · Google Cloud Storage
 **Last Updated:** 2026-02-19
 **Severity Levels:** P0 (critical, immediate) · P1 (high, < 1h) · P2 (medium, < 4h) · P3 (low, next business day)
+
+For deploy commands that use `--image=...`, set `REGION` and `PROJECT_ID` (e.g. `export REGION=us-central1 PROJECT_ID=your-project-id`). The image uses Artifact Registry: `$REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest`.
 
 ---
 
@@ -84,7 +86,7 @@ gcloud run services update-traffic agent-manager \
 ```bash
 # Re-deploy from container registry (Cloud Build or manual)
 gcloud run deploy agent-manager \
-  --image=gcr.io/<PROJECT_ID>/agent-manager:latest \
+  --image=$REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest \
   --region=us-central1 \
   --min-instances=1 \
   --max-instances=10
@@ -371,7 +373,7 @@ gcloud logging read \
 ```bash
 # Force a new revision to deploy (clears any instance-level hangs)
 gcloud run deploy agent-manager \
-  --image=gcr.io/<PROJECT_ID>/agent-manager:latest \
+  --image=$REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest \
   --region=us-central1 \
   --no-traffic  # deploy dark first
 
@@ -520,7 +522,7 @@ gsutil cp gs://<BUCKET>/<OBJECT>#<VERSION_ID> gs://<BUCKET>/<OBJECT>
 ```bash
 # Restart the service to trigger GCS re-sync on startup
 gcloud run deploy agent-manager \
-  --image=gcr.io/<PROJECT_ID>/agent-manager:latest \
+  --image=$REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest \
   --region=us-central1
 ```
 
@@ -641,7 +643,7 @@ echo -n "$NEW_KEY" | gcloud secrets versions add agent-manager-api-key --data-fi
 
 # Force redeploy so service picks up new secret
 gcloud run deploy agent-manager \
-  --image=gcr.io/<PROJECT_ID>/agent-manager:latest \
+  --image=$REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest \
   --region=us-central1
 
 # Distribute new key to all active agents via secure channel
@@ -657,7 +659,7 @@ echo -n "$NEW_JWT_SECRET" | gcloud secrets versions add agent-manager-jwt-secret
 
 # Redeploy (invalidates all existing tokens - agents must re-authenticate)
 gcloud run deploy agent-manager \
-  --image=gcr.io/<PROJECT_ID>/agent-manager:latest \
+  --image=$REGION-docker.pkg.dev/$PROJECT_ID/agent-manager/agent-manager:latest \
   --region=us-central1
 ```
 
@@ -683,12 +685,12 @@ curl -H "Authorization: Bearer $TOKEN" \
 | Level | Trigger | Action |
 |-------|---------|--------|
 | P0 | Complete service outage, data loss risk, security breach | Page on-call engineer immediately; open GCP Critical Support ticket |
-| P1 | Partial outage, multiple agents stuck, auth degraded | Notify tech-lead agent (`bef87360`) and human operator |
+| P1 | Partial outage, multiple agents stuck, auth degraded | Notify tech-lead agent and human operator |
 | P2 | Single agent failure, elevated error rate, performance degraded | Message tech-lead agent; monitor for escalation |
 | P3 | Minor issues, non-blocking, workaround available | File GitHub issue; handle in next sprint |
 
 **Agent Contacts:**
-- Tech Lead: `bef87360` - primary coordination for agent-level incidents
+- Tech Lead: replace with your designated tech-lead agent ID for agent-level coordination
 - Human Operator: message via platform UI or direct communication channel
 
 **External Resources:**
@@ -699,6 +701,8 @@ curl -H "Authorization: Bearer $TOKEN" \
 ---
 
 ## 8. Quick Reference Commands
+
+**Getting a JWT:** Commands below use `TOKEN` for API auth. If you have an agent workspace, use `TOKEN=$(cat /tmp/workspace-*/.agent-token)`. Otherwise get a token: `TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"apiKey":"<API_KEY>"}' $SERVICE_URL/api/auth/token | jq -r '.token')`.
 
 ### Platform Health
 

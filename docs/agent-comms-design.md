@@ -161,7 +161,7 @@ POST /api/agents
 |------|---------|
 | `src/messages.ts` | MessageBus class implementation |
 | `src/types.ts` | AgentMessage type, extended Agent type |
-| `server.ts` | Message endpoints, registry endpoint, parent-child cleanup |
+| `src/routes/messages.ts`, `src/routes/agents.ts` | Message endpoints, registry endpoint, parent-child cleanup (mounted in server.ts) |
 | `CLAUDE.md` | Agent instructions for message-checking and coordination |
 | `src/storage.ts` | GCS sync for shared-context and claude-home |
 | `ui/src/api.ts` | Message API client functions |
