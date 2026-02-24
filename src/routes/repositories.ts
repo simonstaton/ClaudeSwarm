@@ -6,6 +6,7 @@ import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
 import { logger } from "../logger";
 import { PERSISTENT_REPOS } from "../paths";
+import { errorMessage } from "../types";
 
 const execFileAsync = promisify(execFile);
 
@@ -115,8 +116,8 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
       );
 
       res.json({ repositories });
-    } catch (err) {
-      logger.error("[repositories] Failed to list repos", { error: err instanceof Error ? err.message : String(err) });
+    } catch (err: unknown) {
+      logger.error("[repositories] Failed to list repos", { error: errorMessage(err) });
       res.status(500).json({ error: "Failed to list repositories" });
     }
   });
@@ -222,9 +223,9 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
       } catch {
         /* ignore readdir */
       }
-      sendEvent({ type: "clone-error", error: `Clone process error: ${err.message}` });
+      sendEvent({ type: "clone-error", error: `Clone process error: ${errorMessage(err)}` });
       logger.error(`[repositories] Clone process error for ${trimmedUrl}`, {
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
       res.end();
     });
@@ -280,9 +281,9 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
       fs.rmSync(repoPath, { recursive: true, force: true });
       logger.info(`[repositories] Removed repository: ${dirName}`);
       res.json({ ok: true });
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error(`[repositories] Failed to remove ${dirName}`, {
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
       res.status(500).json({ error: "Failed to remove repository" });
     }

@@ -1,6 +1,7 @@
 import express, { type Request, type Response } from "express";
 import { requireHumanUser } from "../auth";
 import type { JobType, Scheduler } from "../scheduler";
+import { errorMessage } from "../types";
 import { param } from "../utils/express";
 
 /**
@@ -67,8 +68,7 @@ export function createSchedulerRouter(scheduler: Scheduler) {
       const job = scheduler.create({ name, cronExpression, jobType: jobType as JobType, payload });
       res.status(201).json(job);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      res.status(400).json({ error: message });
+      res.status(400).json({ error: errorMessage(err) });
     }
   });
 

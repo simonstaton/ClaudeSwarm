@@ -99,7 +99,7 @@
 
 ### Path validation
 
-- **`src/routes/context.ts`**: "Invalid filename" in three places, "File not found" in two; same validation block repeated for GET, PUT, DELETE. Consider a helper that validates name/path and returns `{ filepath } | { status, error }`.
+- **`src/routes/context.ts`**: "Invalid filename" in four places, "File not found" in two; same validation block repeated for GET, PUT, DELETE. Consider a helper that validates name/path and returns `{ filepath } | { status, error }`.
 - **`src/routes/context.ts`** and **`src/routes/repositories.ts`**: Path-traversal check duplicated; could share a util like `isPathUnder(baseDir, candidatePath)`.
 
 ### Response helpers
@@ -127,7 +127,7 @@
 
 ### Catch typing and error extraction
 
-**Use `catch (err: unknown)` and `errorMessage(err)`:**
+**Use `catch (err: unknown)` and `errorMessage(err)`:** (Many of these were fixed in fix/audit-findings-2026-02-23.)
 
 - `src/routes/workflows.ts` (145, 153, 215)
 - `src/routes/mcp.ts` (91, 132, 227, 275, 302)
@@ -137,9 +137,7 @@
 - `src/mcp-oauth-storage.ts` (62, 105)
 - `src/worktrees.ts` (129, 141)
 - `src/storage.ts` (298–319, 372–375)
-- `server.ts` (187, 616, 622)
-- `src/routes/agents.ts` (132–134)
-- `src/routes/scheduler.ts` (69–71)
+- `server.ts` (167, 416, 423)
 - `ui/src/hooks/useAgentPolling.ts` (22)
 - `ui/src/hooks/useKillSwitch.ts` (26)
 
@@ -167,7 +165,7 @@
 
 ### Blocking exec
 
-- `server.ts:392–395` — `cleanupOrphanedProcesses()` uses `execFileSync("ps", ...)` (5s timeout)
+- `src/cleanup.ts` — `cleanupOrphanedProcesses()` uses `execFileSync("ps", ...)` (5s timeout); server.ts calls it during startup.
 - `src/agents.ts:120–124` — `cleanupAllProcesses()` uses `execFileSync("ps", ...)`
 - `src/dep-cache.ts:73–76` — `initDepCache()` uses `execFileSync("pnpm", ...)` (10s timeout)
 
@@ -209,7 +207,7 @@
 | `ui/src/api.ts` | 875 |
 | `ui/src/views/TasksView.tsx` | 840 |
 | `src/storage.ts` | 643 |
-| `server.ts` | 625 |
+| `server.ts` | 425 (refactored; cleanup in src/cleanup.ts) |
 | `src/routes/tasks.ts` | 588 |
 | `ui/src/components/AgentTerminal.tsx` | 576 |
 | `src/orchestrator.ts` | 508 |

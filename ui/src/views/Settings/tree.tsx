@@ -1,6 +1,6 @@
 "use client";
 
-export interface TreeNode<T = undefined> {
+interface TreeNode<T = undefined> {
   name: string;
   fullPath: string;
   isFolder: boolean;

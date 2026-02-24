@@ -9,6 +9,7 @@
 import type { AgentManager } from "./agents";
 import { logger } from "./logger";
 import type { MessageBus } from "./messages";
+import { errorMessage } from "./types";
 
 /** Format a message for auto-delivery to an agent. */
 export function formatDeliveryPrompt(header: string, content: string, replyToId: string): string {
@@ -68,8 +69,7 @@ export function attachMessageDelivery(
           sender,
         });
       } catch (err: unknown) {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        logger.warn("[auto-deliver] Failed to interrupt agent", { agentId: msg.to, error: errMsg });
+        logger.warn("[auto-deliver] Failed to interrupt agent", { agentId: msg.to, error: errorMessage(err) });
       }
       return;
     }
@@ -84,8 +84,7 @@ export function attachMessageDelivery(
         msgType: msg.type,
       });
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      logger.warn("[auto-deliver] Failed to deliver message", { agentId: msg.to, error: errMsg });
+      logger.warn("[auto-deliver] Failed to deliver message", { agentId: msg.to, error: errorMessage(err) });
     } finally {
       agentManager.deliveryDone(msg.to);
     }
@@ -125,8 +124,7 @@ export function attachMessageDelivery(
           { agentId, sender, msgType: next.type },
         );
       } catch (err: unknown) {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        logger.warn("[auto-deliver] Failed to deliver queued message", { agentId, error: errMsg });
+        logger.warn("[auto-deliver] Failed to deliver queued message", { agentId, error: errorMessage(err) });
       } finally {
         agentManager.deliveryDone(agentId);
       }

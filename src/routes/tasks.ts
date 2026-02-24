@@ -4,6 +4,7 @@ import { validateGradeInput } from "../grading";
 import type { Orchestrator } from "../orchestrator";
 import type { TaskGraph, TaskPriority, TaskResult, TaskStatus } from "../task-graph";
 import { MAX_DEPENDENCIES, MAX_RETRIES_LIMIT, MAX_TIMEOUT_MS } from "../task-graph";
+import { errorMessage } from "../types";
 import { param } from "../utils/express";
 
 const VALID_STATUSES = new Set<TaskStatus>([
@@ -226,7 +227,7 @@ export function createTasksRouter(taskGraph: TaskGraph, orchestrator: Orchestrat
       });
       res.status(201).json(task);
     } catch (err: unknown) {
-      res.status(400).json({ error: err instanceof Error ? err.message : "Failed to create task" });
+      res.status(400).json({ error: errorMessage(err) });
     }
   });
 
@@ -388,7 +389,7 @@ export function createTasksRouter(taskGraph: TaskGraph, orchestrator: Orchestrat
       const tasks = orchestrator.decomposeGoal({ goal, subtasks, parentTaskId });
       res.status(201).json({ goal, tasks });
     } catch (err: unknown) {
-      res.status(400).json({ error: err instanceof Error ? err.message : "Failed to decompose goal" });
+      res.status(400).json({ error: errorMessage(err) });
     }
   });
 

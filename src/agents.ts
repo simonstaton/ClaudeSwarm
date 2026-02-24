@@ -518,7 +518,7 @@ export class AgentManager {
         const { agent } = this.create(spec);
         results.push({ agent });
       } catch (err: unknown) {
-        results.push({ error: err instanceof Error ? err.message : "Failed to create agent" });
+        results.push({ error: errorMessage(err) });
       }
     }
     return results;

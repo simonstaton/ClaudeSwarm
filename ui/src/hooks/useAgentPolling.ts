@@ -19,7 +19,7 @@ export function useAgentPolling() {
     try {
       const list = await apiRef.current.fetchAgents();
       setAgents(list);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("[useAgentPolling] fetch failed", err);
     } finally {
       hasFetchedRef.current = true;

@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { logger } from "./logger";
 import type { MCPOAuthToken } from "./mcp-oauth-storage";
 import { deleteToken, isTokenExpired, loadToken, saveToken } from "./mcp-oauth-storage";
+import { errorMessage } from "./types";
 
 interface OAuthTokenResponse {
   access_token: string;
@@ -85,7 +86,7 @@ export const MCP_SERVERS: Record<string, MCPServerConfig> = {
  * Derives the URL from the incoming request headers when available,
  * falling back to PUBLIC_URL env var or localhost for dev.
  */
-export function getCallbackUrl(reqHeaders?: { host?: string; "x-forwarded-proto"?: string }): string {
+function getCallbackUrl(reqHeaders?: { host?: string; "x-forwarded-proto"?: string }): string {
   if (process.env.PUBLIC_URL) {
     return `${process.env.PUBLIC_URL}/api/mcp/callback`;
   }
@@ -216,9 +217,9 @@ export async function exchangeCodeForToken(
     saveToken(token);
 
     return token;
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error("[MCP-OAuth] Error exchanging code for token", {
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     });
     return null;
   }
@@ -287,9 +288,9 @@ export async function refreshAccessToken(server: string): Promise<MCPOAuthToken 
 
     saveToken(token);
     return token;
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error("[MCP-OAuth] Error refreshing token", {
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     });
     return null;
   }

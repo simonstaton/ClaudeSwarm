@@ -23,7 +23,7 @@ export function useKillSwitch() {
     try {
       const s = await apiRef.current.getKillSwitchState();
       setState(s);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("[useKillSwitch] fetch failed", err);
     }
   }, []);

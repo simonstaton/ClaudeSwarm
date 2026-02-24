@@ -126,8 +126,8 @@ export function startWorktreeGC(getActiveWorkspaceDirs: () => Set<string>): Retu
         logger.info(`[worktree] Startup GC: pruned ${initial.pruned} stale worktrees`);
       }
     })
-    .catch((err) => {
-      logger.error("[worktree] Startup GC error", { error: err instanceof Error ? err.message : String(err) });
+    .catch((err: unknown) => {
+      logger.error("[worktree] Startup GC error", { error: errorMessage(err) });
     });
 
   return setInterval(
@@ -138,8 +138,8 @@ export function startWorktreeGC(getActiveWorkspaceDirs: () => Set<string>): Retu
             logger.info(`[worktree] Periodic GC: pruned ${result.pruned} stale worktrees`);
           }
         })
-        .catch((err) => {
-          logger.error("[worktree] GC error", { error: err instanceof Error ? err.message : String(err) });
+        .catch((err: unknown) => {
+          logger.error("[worktree] GC error", { error: errorMessage(err) });
         });
     },
     10 * 60 * 1000,

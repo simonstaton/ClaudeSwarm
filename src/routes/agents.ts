@@ -4,7 +4,7 @@ import { requireHumanUser } from "../auth";
 import { MAX_BATCH_SIZE } from "../guardrails";
 import { logger } from "../logger";
 import type { MessageBus } from "../messages";
-import type { StreamEvent } from "../types";
+import { errorMessage, type StreamEvent } from "../types";
 import { param, queryString } from "../utils/express";
 import { listFilesRecursive } from "../utils/files";
 import { setupSSE } from "../utils/sse";
@@ -130,7 +130,7 @@ export function createAgentsRouter(
       startKeepAlive();
       setupSSE(res, agent.id, subscribe);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to create agent";
+      const message = errorMessage(err);
       // Use 500 for spawn/fs errors; validation errors are caught earlier and return 400
       res.status(500).json({ error: message });
     }
@@ -179,7 +179,7 @@ export function createAgentsRouter(
       );
       setupSSE(res, updatedAgent.id, subscribe);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to send message";
+      const message = errorMessage(err);
       logger.error("[message] Error sending message to agent", { error: message });
       const status = message === "Agent not found" ? 404 : 400;
       res.status(status).json({ error: message });

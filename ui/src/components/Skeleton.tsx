@@ -51,13 +51,3 @@ export function TreeListSkeleton({ rows = 4 }: { rows?: number }) {
     </div>
   );
 }
-
-/** Skeleton for a Sidebar agent list item. */
-export function SidebarItemSkeleton() {
-  return (
-    <div className="flex items-center gap-2 px-3 py-2">
-      <Skeleton className="h-2 w-2 rounded-full" />
-      <Skeleton className="h-3 w-28" />
-    </div>
-  );
-}

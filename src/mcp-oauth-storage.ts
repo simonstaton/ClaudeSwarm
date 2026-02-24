@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { logger } from "./logger";
+import { errorMessage } from "./types";
 
 export interface MCPOAuthToken {
   server: string;
@@ -59,9 +60,9 @@ export function loadToken(server: string): MCPOAuthToken | null {
     const data = fs.readFileSync(filePath, "utf8");
     const token = JSON.parse(data) as MCPOAuthToken;
     return token;
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error(`[MCP-OAuth] Failed to load token for ${server}`, {
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     });
     return null;
   }
@@ -97,14 +98,14 @@ export function isTokenExpired(token: MCPOAuthToken): boolean {
 /**
  * List all servers with stored tokens
  */
-export function listStoredTokens(): string[] {
+function listStoredTokens(): string[] {
   ensureTokenDir();
   try {
     const files = fs.readdirSync(getMcpTokenDir());
     return files.filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, ""));
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error("[MCP-OAuth] Failed to list stored tokens", {
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     });
     return [];
   }

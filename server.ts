@@ -38,6 +38,7 @@ import {
   syncToGCS,
 } from "./src/storage";
 import { TaskGraph } from "./src/task-graph";
+import { errorMessage } from "./src/types";
 import { getContainerMemoryUsage } from "./src/utils/memory";
 import { rateLimitMiddleware } from "./src/validation";
 import { isAllowedWebhookUrl } from "./src/webhook-url";
@@ -163,8 +164,8 @@ function startKeepAlive() {
     }
     try {
       await fetch(`http://localhost:${KEEPALIVE_PORT}/api/health`);
-    } catch (err) {
-      logger.warn("[keepalive] Health check failed", { error: err instanceof Error ? err.message : String(err) });
+    } catch (err: unknown) {
+      logger.warn("[keepalive] Health check failed", { error: errorMessage(err) });
     }
   }, 60_000); // every 60 seconds - well within Cloud Run's ~15min idle timeout
 }
@@ -294,7 +295,7 @@ async function start() {
 
     const handleFatalError = (source: string, detail: unknown) => {
       logger.error(`[FATAL] ${source} at ${new Date().toISOString()}`, {
-        error: detail instanceof Error ? detail.message : String(detail),
+        error: errorMessage(detail),
         stack: detail instanceof Error ? detail.stack : undefined,
       });
       logger.error("[FATAL] Attempting graceful shutdown...");
@@ -307,7 +308,7 @@ async function start() {
         agentManager.emergencyDestroyAll();
       } catch (destroyErr: unknown) {
         logger.error("[FATAL] Error during agent destruction", {
-          error: destroyErr instanceof Error ? destroyErr.message : String(destroyErr),
+          error: errorMessage(destroyErr),
         });
       }
 
@@ -413,13 +414,13 @@ async function start() {
 
     logger.info("[startup] Recovery complete");
   } catch (err: unknown) {
-    logger.error("[startup] Recovery failed", { error: err instanceof Error ? err.message : String(err) });
+    logger.error("[startup] Recovery failed", { error: errorMessage(err) });
   } finally {
     recovering = false;
   }
 }
 
-start().catch((err) => {
-  logger.error("Failed to start", { error: err instanceof Error ? err.message : String(err) });
+start().catch((err: unknown) => {
+  logger.error("Failed to start", { error: errorMessage(err) });
   process.exit(1);
 });

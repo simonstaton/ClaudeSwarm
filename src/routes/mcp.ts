@@ -88,7 +88,7 @@ export function createMcpRouter() {
       });
 
       res.json({ servers });
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("[MCP-Routes] Error listing servers", { error: errorMessage(err) });
       res.status(500).json({ error: errorMessage(err) });
     }
@@ -129,7 +129,7 @@ export function createMcpRouter() {
         message: "Visit this URL in your browser to authenticate",
         server,
       });
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("[MCP-Routes] Error initiating OAuth", { error: errorMessage(err) });
       res.status(500).json({ error: errorMessage(err) });
     }
@@ -224,7 +224,7 @@ export function createMcpRouter() {
           true,
         ),
       );
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("[MCP-Routes] Error in OAuth callback", { error: errorMessage(err) });
       res
         .status(500)
@@ -272,7 +272,7 @@ export function createMcpRouter() {
         expiresAt: token.expiresAt,
         expired: isTokenExpired(token),
       });
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("[MCP-Routes] Error getting token status", { error: errorMessage(err) });
       res.status(500).json({ error: errorMessage(err) });
     }
@@ -299,7 +299,7 @@ export function createMcpRouter() {
       } else {
         res.status(404).json({ error: "No token found to revoke" });
       }
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("[MCP-Routes] Error revoking token", { error: errorMessage(err) });
       res.status(500).json({ error: errorMessage(err) });
     }

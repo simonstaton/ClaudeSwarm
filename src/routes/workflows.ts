@@ -7,7 +7,7 @@ import type { MessageBus } from "../messages";
 import { buildManagerPrompt } from "../templates/linear-workflow-manager-prompt";
 import { errorMessage } from "../types";
 
-export interface LinearWorkflow {
+interface LinearWorkflow {
   id: string;
   linearUrl: string;
   repository: string;
@@ -142,7 +142,7 @@ export function createWorkflowsRouter(agentManager: AgentManager, messageBus: Me
         workflow.updatedAt = new Date().toISOString();
 
         res.status(201).json({ workflow });
-      } catch (err) {
+      } catch (err: unknown) {
         logger.error(`[Workflows] Failed to spawn manager for ${workflowId}`, { error: errorMessage(err) });
         workflow.status = "failed";
         workflow.error = errorMessage(err);
@@ -150,7 +150,7 @@ export function createWorkflowsRouter(agentManager: AgentManager, messageBus: Me
 
         res.status(500).json({ error: `Failed to start workflow: ${errorMessage(err)}`, workflow });
       }
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("[Workflows] Error starting workflow", { error: errorMessage(err) });
       res.status(500).json({ error: errorMessage(err) });
     }
@@ -212,7 +212,7 @@ export function createWorkflowsRouter(agentManager: AgentManager, messageBus: Me
         if (!destroyed) {
           logger.warn("[Workflows] Agent already gone on cancel", { agentId: agent.id });
         }
-      } catch (err) {
+      } catch (err: unknown) {
         logger.warn(`[Workflows] Failed to destroy agent ${agent.id}`, { error: errorMessage(err) });
       }
     }

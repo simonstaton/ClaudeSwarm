@@ -120,7 +120,7 @@ export class WorkspaceManager {
     if (existsSync(PERSISTENT_REPOS)) {
       try {
         repoList = readdirSync(PERSISTENT_REPOS).filter((f) => f.endsWith(".git"));
-      } catch (err) {
+      } catch (err: unknown) {
         logger.warn("[workspace] Failed to list persistent repos", { error: errorMessage(err) });
       }
     }
@@ -134,7 +134,7 @@ export class WorkspaceManager {
     if (existsSync(commandsDir)) {
       try {
         skillFiles = scanCommands(commandsDir);
-      } catch (err) {
+      } catch (err: unknown) {
         logger.warn("[workspace] Failed to scan skills/commands", { error: errorMessage(err) });
       }
     }
