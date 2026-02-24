@@ -249,8 +249,8 @@ export class WorkspaceManager {
     return { prefix, names };
   }
 
-  buildEnv(agentId?: string): NodeJS.ProcessEnv {
-    // Allowlist approach - only forward env vars agents actually need.
+  buildEnv(agentId?: string, workspaceDir?: string): NodeJS.ProcessEnv {
+    // Allowlist - only forward env vars agents need. workspaceDir enables per-repo PATs via .git-credentials.
     const ALLOWED_ENV_KEYS = [
       // Anthropic API access (needed for Claude CLI)
       "ANTHROPIC_API_KEY",
@@ -300,6 +300,10 @@ export class WorkspaceManager {
       if (process.env[key] !== undefined) {
         env[key] = process.env[key];
       }
+    }
+
+    if (workspaceDir) {
+      env.GIT_CREDENTIAL_HELPER = `store --file=${workspaceDir}/.git-credentials`;
     }
 
     return env;

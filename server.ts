@@ -29,6 +29,7 @@ import { createTasksRouter } from "./src/routes/tasks";
 import { createUsageRouter } from "./src/routes/usage";
 import { createWorkflowsRouter } from "./src/routes/workflows";
 import { Scheduler } from "./src/scheduler";
+import { loadSecretsIntoEnv } from "./src/secrets-store";
 import {
   cleanupClaudeHome,
   ensureDefaultContextFiles,
@@ -260,6 +261,13 @@ memoryMonitorInterval.unref();
 
 async function start() {
   const PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
+
+  // Load API keys and tokens from encrypted secrets store (Settings) into env; env vars still override if set.
+  try {
+    loadSecretsIntoEnv();
+  } catch (err: unknown) {
+    logger.warn("[startup] Secrets store load skipped", { error: errorMessage(err) });
+  }
 
   // Start listening IMMEDIATELY so the startup probe passes while we recover.
   // GCS sync and agent restoration happen in the background.

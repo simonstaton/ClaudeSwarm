@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, Button, TextField } from "@fanvue/ui";
+import { Alert, Button, PasswordField, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { createApi, Repository } from "../../api";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -19,6 +19,8 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
   const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [patValues, setPatValues] = useState<Record<string, string>>({});
+  const [savingPat, setSavingPat] = useState<string | null>(null);
   const outputRef = useRef<HTMLPreElement>(null);
   const messageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -125,6 +127,25 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
       showMessage(err instanceof Error ? err.message : "Clone failed", "error");
     } finally {
       setCloning(false);
+    }
+  };
+
+  const saveRepoPat = async (repoName: string) => {
+    const pat = (patValues[repoName] ?? "").trim();
+    setSavingPat(repoName);
+    try {
+      await api.setRepositoryPat(repoName, pat);
+      showMessage(pat ? `PAT saved for ${repoName}` : `PAT cleared for ${repoName}`, "success");
+      setPatValues((prev) => {
+        const next = { ...prev };
+        delete next[repoName];
+        return next;
+      });
+      await refresh();
+    } catch (err) {
+      showMessage(err instanceof Error ? err.message : "Failed to save PAT", "error");
+    } finally {
+      setSavingPat(null);
     }
   };
 
@@ -237,37 +258,58 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
             <p className="text-xs text-zinc-400 mt-1">Clone a repository above to get started</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {repos.map((repo) => (
-              <div
-                key={repo.name}
-                className="flex items-center justify-between px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-800 group"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-zinc-200">{repo.name}</span>
-                    {repo.hasActiveAgents && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-900/50 text-amber-400">
-                        {repo.activeAgentCount} active agent{repo.activeAgentCount !== 1 ? "s" : ""}
-                      </span>
-                    )}
+              <div key={repo.name} className="px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-zinc-200">{repo.name}</span>
+                      {repo.patConfigured && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-900/50 text-emerald-400">
+                          PAT set
+                        </span>
+                      )}
+                      {repo.hasActiveAgents && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-900/50 text-amber-400">
+                          {repo.activeAgentCount} active agent{repo.activeAgentCount !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                    {repo.url && <p className="text-xs text-zinc-400 font-mono truncate mt-0.5">{repo.url}</p>}
                   </div>
-                  {repo.url && <p className="text-xs text-zinc-400 font-mono truncate mt-0.5">{repo.url}</p>}
+                  <Button
+                    variant="secondary"
+                    size="24"
+                    disabled={repo.hasActiveAgents}
+                    title={
+                      repo.hasActiveAgents
+                        ? `Cannot remove - ${repo.activeAgentCount} active agent(s) using this repo. Destroy them first.`
+                        : "Remove repository"
+                    }
+                    onClick={() => setPendingDelete(repo.name)}
+                    className="text-zinc-400 hover:text-red-400 shrink-0 ml-3"
+                  >
+                    Remove
+                  </Button>
                 </div>
-                <Button
-                  variant="secondary"
-                  size="24"
-                  disabled={repo.hasActiveAgents}
-                  title={
-                    repo.hasActiveAgents
-                      ? `Cannot remove - ${repo.activeAgentCount} active agent(s) using this repo. Destroy them first.`
-                      : "Remove repository"
-                  }
-                  onClick={() => setPendingDelete(repo.name)}
-                  className="text-zinc-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-3"
-                >
-                  Remove
-                </Button>
+                <div className="flex gap-2 items-center">
+                  <PasswordField
+                    value={patValues[repo.name] ?? ""}
+                    onChange={(e) => setPatValues((prev) => ({ ...prev, [repo.name]: e.target.value }))}
+                    placeholder="Git PAT for this repo (optional)"
+                    size="40"
+                    className="flex-1 max-w-sm"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="40"
+                    onClick={() => saveRepoPat(repo.name)}
+                    loading={savingPat === repo.name}
+                  >
+                    Save PAT
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

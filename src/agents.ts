@@ -16,6 +16,7 @@ import {
 } from "./guardrails";
 import { logger } from "./logger";
 import { EVENTS_DIR, loadAllAgentStates, removeAgentState, saveAgentState, writeTombstone } from "./persistence";
+import { getRepoCredentialsForAgents, writeGitCredentialsFile } from "./repo-credentials";
 import { sanitizeEvent } from "./sanitize";
 import { cleanupAgentClaudeData, debouncedSyncToGCS } from "./storage";
 import type {
@@ -405,6 +406,9 @@ export class AgentManager {
     const model = opts.model && ALLOWED_MODELS.includes(opts.model) ? opts.model : DEFAULT_MODEL;
     const workspaceDir = `/tmp/workspace-${id}`;
     this.workspace.ensureWorkspace(workspaceDir, name, id);
+    getRepoCredentialsForAgents()
+      .then((creds) => writeGitCredentialsFile(workspaceDir, creds))
+      .catch((err: unknown) => logger.warn("[agents] Failed to write git credentials", { error: errorMessage(err) }));
 
     const now = nowISO();
     const agent: Agent = {
@@ -432,7 +436,7 @@ export class AgentManager {
     }
 
     const args = this.buildClaudeArgs({ ...opts, prompt: finalPrompt }, model);
-    const env = this.workspace.buildEnv(id);
+    const env = this.workspace.buildEnv(id, workspaceDir);
 
     const proc = spawn("claude", args, {
       env,
@@ -556,7 +560,7 @@ export class AgentManager {
       model,
       resumeId,
     );
-    const env = this.workspace.buildEnv(id);
+    const env = this.workspace.buildEnv(id, agentProc.agent.workspaceDir);
 
     // Kill old process and await its exit before spawning new one.
     // This prevents event interleaving from the old process's close handler

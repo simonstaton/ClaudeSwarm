@@ -164,6 +164,7 @@ export interface Repository {
   name: string;
   dirName: string;
   url: string | null;
+  patConfigured?: boolean;
   hasActiveAgents: boolean;
   activeAgentCount: number;
   activeAgents: Array<{ id: string; name: string }>;
@@ -459,6 +460,22 @@ export function createApi(authFetch: AuthFetch) {
         body: JSON.stringify({ key }),
       });
       if (!res.ok) throw new Error("Invalid API key format");
+      return res.json();
+    },
+
+    async setIntegrations(integrations: {
+      githubToken?: string;
+      notionApiKey?: string;
+      slackToken?: string;
+      figmaToken?: string;
+      linearApiKey?: string;
+    }): Promise<{ ok: boolean; integrations: Record<string, { configured: boolean }> }> {
+      const res = await authFetch("/api/settings/integrations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(integrations),
+      });
+      if (!res.ok) throw new Error("Failed to save integration tokens");
       return res.json();
     },
 
@@ -804,6 +821,16 @@ export function createApi(authFetch: AuthFetch) {
         const data = await res.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error || "Failed to delete repository");
       }
+    },
+
+    async setRepositoryPat(repoName: string, pat: string): Promise<{ ok: boolean; patConfigured: boolean }> {
+      const res = await authFetch(`/api/repositories/${encodeURIComponent(repoName)}/pat`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pat }),
+      });
+      if (!res.ok) throw new Error("Failed to save repository PAT");
+      return res.json();
     },
   };
 }

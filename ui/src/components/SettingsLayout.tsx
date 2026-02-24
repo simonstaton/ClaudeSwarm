@@ -11,6 +11,7 @@ const SETTINGS_LINKS = [
   { href: "/settings/context", label: "Shared Context" },
   { href: "/settings/config", label: "Claude Config" },
   { href: "/settings/repositories", label: "Repositories" },
+  { href: "/settings/integrations", label: "Integrations" },
   { href: "/settings/guardrails", label: "Guardrails" },
   { href: "/settings/apikey", label: "API Key" },
 ] as const;

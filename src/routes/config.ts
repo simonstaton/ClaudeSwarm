@@ -7,6 +7,7 @@ import { logger } from "../logger";
 import { MCP_SERVERS } from "../mcp-oauth-manager";
 import { getAllTokens, isTokenExpired } from "../mcp-oauth-storage";
 import { resetSanitizeCache } from "../sanitize";
+import { getAnthropicHint, getIntegrationHints, setAnthropic, setIntegration } from "../secrets-store";
 import { syncClaudeHome } from "../storage";
 import type { AuthenticatedRequest } from "../types";
 import { errorMessage } from "../types";
@@ -16,33 +17,39 @@ import { walkDir } from "../utils/files";
 export function createConfigRouter() {
   const router = express.Router();
 
-  // Get current settings
+  // Get current settings (store first, then env for backwards compatibility)
   router.get("/api/settings", (_req, res) => {
-    const isOpenRouter = !!process.env.ANTHROPIC_AUTH_TOKEN;
-    const key = (isOpenRouter ? process.env.ANTHROPIC_AUTH_TOKEN : process.env.ANTHROPIC_API_KEY) || "";
+    const anthropicFromStore = getAnthropicHint();
+    const isOpenRouter = anthropicFromStore
+      ? anthropicFromStore.mode === "openrouter"
+      : !!process.env.ANTHROPIC_AUTH_TOKEN;
+    const keyHint = anthropicFromStore
+      ? anthropicFromStore.hint
+      : (() => {
+          const key = (isOpenRouter ? process.env.ANTHROPIC_AUTH_TOKEN : process.env.ANTHROPIC_API_KEY) || "";
+          return key ? `...${key.slice(-8)}` : "(not set)";
+        })();
 
-    // Check Linear API key availability and MCP OAuth status
-    const hasLinearApiKey = !!process.env.LINEAR_API_KEY;
+    const storeHints = getIntegrationHints();
     const storedTokens = getAllTokens();
     const linearToken = storedTokens.find((t) => t.server === "linear");
     const hasLinearOAuth = !!linearToken && !isTokenExpired(linearToken);
-    const linearConfigured = hasLinearApiKey || hasLinearOAuth;
+    const linearConfigured = storeHints.linear.configured || hasLinearOAuth;
 
-    // Build integrations status for all MCP servers
+    // Build integrations status: store first, then MCP OAuth
     const integrations: Record<string, { configured: boolean; authMethod: string }> = {};
     for (const [name] of Object.entries(MCP_SERVERS)) {
       const token = storedTokens.find((t) => t.server === name);
       const hasOAuth = !!token && !isTokenExpired(token);
-      const envKey = name === "linear" ? "LINEAR_API_KEY" : name === "figma" ? "FIGMA_TOKEN" : "";
-      const hasEnvKey = envKey ? !!process.env[envKey] : false;
+      const fromStore = storeHints[name as keyof typeof storeHints]?.configured ?? false;
       integrations[name] = {
-        configured: hasEnvKey || hasOAuth,
-        authMethod: hasEnvKey ? "token" : hasOAuth ? "oauth" : "none",
+        configured: fromStore || hasOAuth,
+        authMethod: fromStore ? "token" : hasOAuth ? "oauth" : "none",
       };
     }
 
     res.json({
-      anthropicKeyHint: key ? `...${key.slice(-8)}` : "(not set)",
+      anthropicKeyHint: keyHint,
       keyMode: isOpenRouter ? "openrouter" : "anthropic",
       models: ["claude-haiku-4-5-20251001", "claude-sonnet-4-5-20250929", "claude-sonnet-4-6", "claude-opus-4-6"],
       guardrails: {
@@ -59,7 +66,7 @@ export function createConfigRouter() {
     });
   });
 
-  // Switch API key - supports both OpenRouter (sk-or-) and direct Anthropic (sk-ant-)
+  // Switch API key - supports both OpenRouter (sk-or-) and direct Anthropic (sk-ant-). Stored securely on backend.
   router.put("/api/settings/anthropic-key", requireHumanUser, (req: Request, res: Response) => {
     const user = (req as AuthenticatedRequest).user;
     const { key } = req.body ?? {};
@@ -68,20 +75,45 @@ export function createConfigRouter() {
       return;
     }
     const isOpenRouter = key.startsWith("sk-or-");
-    if (isOpenRouter) {
-      process.env.ANTHROPIC_AUTH_TOKEN = key;
-      delete process.env.ANTHROPIC_API_KEY;
-      process.env.ANTHROPIC_BASE_URL = "https://openrouter.ai/api";
-    } else {
-      process.env.ANTHROPIC_API_KEY = key;
-      delete process.env.ANTHROPIC_AUTH_TOKEN;
-      delete process.env.ANTHROPIC_BASE_URL;
+    try {
+      setAnthropic(key, isOpenRouter ? "openrouter" : "anthropic");
+    } catch (err: unknown) {
+      logger.warn("[config] Failed to save API key to secrets store", { error: errorMessage(err) });
+      res.status(500).json({ error: "Failed to save API key securely" });
+      return;
     }
     resetSanitizeCache();
     logger.warn(
       `[AUDIT] API key changed to ${isOpenRouter ? "OpenRouter" : "Anthropic"} by user: ${user?.sub ?? "unknown"}`,
     );
     res.json({ ok: true, hint: `...${key.slice(-8)}`, keyMode: isOpenRouter ? "openrouter" : "anthropic" });
+  });
+
+  // Set integration tokens (GitHub, Notion, Slack, Figma, Linear). Stored securely; only set what you use.
+  router.put("/api/settings/integrations", requireHumanUser, (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const allowed = ["githubToken", "notionApiKey", "slackToken", "figmaToken", "linearApiKey"] as const;
+    const nameMap = {
+      githubToken: "github" as const,
+      notionApiKey: "notion" as const,
+      slackToken: "slack" as const,
+      figmaToken: "figma" as const,
+      linearApiKey: "linear" as const,
+    };
+    try {
+      for (const key of allowed) {
+        const val = body[key];
+        if (val === undefined) continue;
+        const str = typeof val === "string" ? val : "";
+        setIntegration(nameMap[key], str);
+      }
+      const hints = getIntegrationHints();
+      res.json({ ok: true, integrations: hints });
+    } catch (err: unknown) {
+      logger.warn("[config] Failed to save integrations to secrets store", { error: errorMessage(err) });
+      res.status(500).json({ error: "Failed to save integration tokens securely" });
+      return;
+    }
   });
 
   // List editable Claude config files

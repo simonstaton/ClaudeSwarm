@@ -27,6 +27,20 @@ export default function SettingsPage() {
               <p className="text-xs text-zinc-400 mt-1">Edit Claude config, skills, and memory</p>
             </Link>
             <Link
+              href="/settings/repositories"
+              className="block p-4 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 hover:bg-zinc-800/50 transition-colors"
+            >
+              <span className="font-medium text-zinc-200">Repositories</span>
+              <p className="text-xs text-zinc-400 mt-1">Clone repos and set PAT per repository</p>
+            </Link>
+            <Link
+              href="/settings/integrations"
+              className="block p-4 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 hover:bg-zinc-800/50 transition-colors"
+            >
+              <span className="font-medium text-zinc-200">Integrations</span>
+              <p className="text-xs text-zinc-400 mt-1">GitHub, Notion, Slack, Figma, Linear tokens</p>
+            </Link>
+            <Link
               href="/settings/guardrails"
               className="block p-4 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 hover:bg-zinc-800/50 transition-colors"
             >

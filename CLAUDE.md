@@ -29,6 +29,13 @@ npm install && cd ui && npm install && cd ..
 npm run dev           # starts server + Vite dev server
 ```
 
+**Local Docker (no GCP):** One-command run with full persistence (repos, shared-context, state, logs):
+```bash
+cp .env.example .env   # set API_KEY and ANTHROPIC_AUTH_TOKEN; do not set GCS_BUCKET
+npm run docker:local   # builds image and starts at http://localhost:8080
+```
+Data lives in Docker volume `agent-manager-data` (mount point `/persistent`). See `plans/local-docker-and-npx.md` for design and npx roadmap.
+
 ## Quality checks - run before committing
 ```bash
 npm run check         # runs lint + typecheck + tests (all three)

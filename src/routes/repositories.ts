@@ -4,8 +4,10 @@ import path from "node:path";
 import { promisify } from "node:util";
 import express, { type Request, type Response } from "express";
 import type { AgentManager } from "../agents";
+import { requireHumanUser } from "../auth";
 import { logger } from "../logger";
 import { PERSISTENT_REPOS } from "../paths";
+import { getGitHubTokenForClone, hasRepoPat, setRepoPat } from "../secrets-store";
 import { errorMessage } from "../types";
 
 const execFileAsync = promisify(execFile);
@@ -102,12 +104,14 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
       const repositories = await Promise.all(
         entries.map(async (entry) => {
           const repoPath = path.join(PERSISTENT_REPOS, entry);
+          const name = entry.replace(/\.git$/, "");
           const url = await getRemoteUrl(repoPath);
           const activeAgents = await getActiveAgentsForRepo(repoPath, agentManager);
           return {
-            name: entry.replace(/\.git$/, ""),
+            name,
             dirName: entry,
             url,
+            patConfigured: hasRepoPat(name),
             hasActiveAgents: activeAgents.length > 0,
             activeAgentCount: activeAgents.length,
             activeAgents,
@@ -122,7 +126,29 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
     }
   });
 
-  // Clone a new repository (SSE streaming for progress)
+  // Set or clear PAT for a repository (for git fetch/push from agents)
+  router.put("/api/repositories/:name/pat", requireHumanUser, (req: Request, res: Response) => {
+    const name = (req.params.name as string).replace(/\.git$/, "");
+    const { pat } = (req.body ?? {}) as { pat?: string };
+    const dirName = `${name}.git`;
+    const repoPath = path.join(PERSISTENT_REPOS, dirName);
+
+    if (!fs.existsSync(repoPath)) {
+      res.status(404).json({ error: `Repository "${name}" not found` });
+      return;
+    }
+
+    const resolved = path.resolve(repoPath);
+    if (!resolved.startsWith(path.resolve(PERSISTENT_REPOS) + path.sep)) {
+      res.status(400).json({ error: "Invalid repository name" });
+      return;
+    }
+
+    setRepoPat(name, typeof pat === "string" ? pat : "");
+    res.json({ ok: true, patConfigured: hasRepoPat(name) });
+  });
+
+  // Clone a new repository (SSE streaming for progress). Uses global GitHub token from Settings if set.
   router.post("/api/repositories", (req: Request, res: Response) => {
     const { url } = req.body ?? {};
 
@@ -131,10 +157,23 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
       return;
     }
 
-    const trimmedUrl = url.trim();
+    let trimmedUrl = url.trim();
     if (!isValidGitUrl(trimmedUrl)) {
       res.status(400).json({ error: "Invalid git URL. Provide an HTTPS or SSH URL." });
       return;
+    }
+
+    // Inject GitHub token for HTTPS clone when available (private repos)
+    const ghToken = getGitHubTokenForClone();
+    if (ghToken && trimmedUrl.startsWith("https://") && trimmedUrl.includes("github.com")) {
+      try {
+        const u = new URL(trimmedUrl);
+        u.username = "oauth2";
+        u.password = ghToken;
+        trimmedUrl = u.toString();
+      } catch {
+        /* leave trimmedUrl as-is */
+      }
     }
 
     const repoName = extractRepoName(trimmedUrl);
@@ -177,7 +216,19 @@ export function createRepositoriesRouter(agentManager: AgentManager) {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 
-    sendEvent({ type: "clone-start", repo: repoName, url: trimmedUrl });
+    // Redact token from URL for display (avoid leaking in SSE)
+    let displayUrl = trimmedUrl;
+    if (ghToken) {
+      try {
+        const u = new URL(trimmedUrl);
+        u.password = "[REDACTED]";
+        u.username = u.username ? "[REDACTED]" : u.username;
+        displayUrl = u.toString();
+      } catch {
+        displayUrl = "https://github.com/[REDACTED]";
+      }
+    }
+    sendEvent({ type: "clone-start", repo: repoName, url: displayUrl });
 
     const proc = spawn("git", ["clone", "--bare", "--progress", trimmedUrl, targetDir], {
       stdio: ["ignore", "pipe", "pipe"],

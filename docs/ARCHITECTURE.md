@@ -22,13 +22,13 @@ Short reference for navigating the codebase and tracing flows. See also CLAUDE.m
 | **auth** | `POST /api/auth/token` | auth.exchangeKeyForToken |
 | **agents** | `/api/agents/*` | AgentManager, MessageBus, keepalive, isMemoryPressure |
 | **messages** | `/api/messages/*` | MessageBus |
-| **config** | `GET/PUT /api/settings*`, `GET/PUT/POST/DELETE /api/claude-config*` | auth (requireHumanUser), guardrails, MCP OAuth storage, storage (syncClaudeHome), sanitize, config-paths |
+| **config** | `GET/PUT /api/settings*`, `GET/PUT /api/settings/integrations`, `GET/PUT/POST/DELETE /api/claude-config*` | auth (requireHumanUser), guardrails, MCP OAuth storage, secrets-store, storage (syncClaudeHome), sanitize, config-paths |
 | **context** | `/api/context/*` | Storage (shared-context) |
 | **cost** | `/api/cost/*` | AgentManager, CostTracker, MessageBus |
 | **tasks** | `/api/tasks/*` | TaskGraph, Orchestrator, GradeStore |
 | **scheduler** | `/api/scheduler/*` | Scheduler |
 | **workflows** | `/api/workflows/*` | AgentManager, MessageBus |
-| **repositories** | `/api/repos/*` | AgentManager (workspace/repos) |
+| **repositories** | `/api/repositories/*` (list, clone, `PUT :name/pat`) | AgentManager, auth (requireHumanUser for PAT), secrets-store (getGitHubTokenForClone, hasRepoPat, setRepoPat) |
 | **kill-switch** | `GET /api/kill-switch` (state), `POST /api/kill-switch` (activate/deactivate) | AgentManager |
 | **mcp** | `/api/mcp/*` | MCP OAuth, config |
 | **usage** | `/api/usage/*` | AgentManager |

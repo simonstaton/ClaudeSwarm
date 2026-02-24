@@ -1,0 +1,25 @@
+# Local run without GCP. Persistence: one volume at /persistent (repos, shared-context, state, events, messages).
+# Required: .env with API_KEY and ANTHROPIC_AUTH_TOKEN (e.g. OpenRouter). Do not set GCS_BUCKET.
+# Run: npm run docker:local
+
+services:
+  agent-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agent-manager:local
+    container_name: agent-manager-local
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      PORT: "8080"
+      SHARED_CONTEXT_DIR: /persistent/shared-context
+      # GCS_BUCKET left unset → GCS sync and GCS kill-switch poll are no-ops
+    volumes:
+      - agent-manager-data:/persistent
+    restart: unless-stopped
+
+volumes:
+  agent-manager-data:
