@@ -1,15 +1,15 @@
-import type { BadgeVariant } from "@fanvue/ui";
+export type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info";
 
 export const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
   running: "success",
   starting: "warning",
   idle: "info",
-  error: "error",
+  error: "destructive",
   restored: "info",
   killing: "warning",
-  destroying: "error",
+  destroying: "destructive",
   paused: "warning",
-  stalled: "error",
+  stalled: "destructive",
   disconnected: "default",
 };
 
@@ -41,7 +41,7 @@ export const TASK_STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
   assigned: "info",
   running: "success",
   completed: "info",
-  failed: "error",
+  failed: "destructive",
   blocked: "warning",
   cancelled: "default",
 };

@@ -1,7 +1,9 @@
 "use client";
 
-import { Badge, Button } from "@fanvue/ui";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { Agent, GradeResult } from "../api";
 import { AgentMetadataPanel } from "../components/AgentMetadataPanel";
 import { AgentTerminal } from "../components/AgentTerminal";
@@ -12,7 +14,7 @@ import { RiskBadge } from "../components/RiskBadge";
 import { Sidebar } from "../components/Sidebar";
 import { AgentHeaderSkeleton } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
-import { STATUS_BADGE_VARIANT } from "../constants";
+import { STATUS_BADGE_VARIANT, STATUS_LABELS } from "../constants";
 import { useAgentPolling } from "../hooks/useAgentPolling";
 import { useAgentStream } from "../hooks/useAgentStream";
 import { useApi } from "../hooks/useApi";
@@ -21,6 +23,7 @@ import { useKillSwitchContext } from "../killSwitch";
 import { formatRepo } from "../utils/git";
 
 export function AgentView({ agentId }: { agentId: string }) {
+  const router = useRouter();
   const id = agentId;
   const api = useApi();
   const apiRef = useRef(api);
@@ -68,7 +71,7 @@ export function AgentView({ agentId }: { agentId: string }) {
         reconnectRef.current();
       } catch (err) {
         console.error("[AgentView] load failed", err);
-        if (!cancelled) window.location.href = "/";
+        if (!cancelled) router.replace("/");
       }
     };
     load();
@@ -77,7 +80,7 @@ export function AgentView({ agentId }: { agentId: string }) {
       cancelled = true;
       setAgent(null);
     };
-  }, [id]);
+  }, [id, router.replace]);
 
   // Refresh agent details periodically (paused when tab is hidden)
   useEffect(() => {
@@ -126,7 +129,7 @@ export function AgentView({ agentId }: { agentId: string }) {
     setIsStopping(true);
     try {
       await apiRef.current.destroyAgent(id);
-      window.location.href = "/";
+      router.replace("/");
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Failed to stop agent", "error");
       setIsStopping(false);
@@ -329,8 +332,8 @@ export function AgentView({ agentId }: { agentId: string }) {
                 </label>
               )}
               <Button
-                variant="tertiary"
-                size="24"
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   if (id && agent) {
                     api
@@ -341,14 +344,14 @@ export function AgentView({ agentId }: { agentId: string }) {
               >
                 Download Log
               </Button>
-              <Button variant="tertiary" size="24" onClick={reconnect}>
+              <Button variant="ghost" size="sm" onClick={reconnect}>
                 Reconnect
               </Button>
               {agent &&
                 (isPausing || agent.status === "running" || agent.status === "idle" || agent.status === "stalled") && (
                   <Button
-                    variant="tertiary"
-                    size="24"
+                    variant="ghost"
+                    size="sm"
                     disabled={isPausing}
                     onClick={async () => {
                       if (!id || isPausing) return;
@@ -369,8 +372,8 @@ export function AgentView({ agentId }: { agentId: string }) {
                 )}
               {!isPausing && (agent?.status === "paused" || isResuming) && (
                 <Button
-                  variant="tertiary"
-                  size="24"
+                  variant="ghost"
+                  size="sm"
                   disabled={isResuming}
                   onClick={async () => {
                     if (!id || isResuming) return;
@@ -391,10 +394,11 @@ export function AgentView({ agentId }: { agentId: string }) {
               )}
               {canStop && (
                 <Button
-                  variant="tertiaryDestructive"
-                  size="24"
+                  variant="destructive"
+                  size="sm"
                   onClick={() => setShowStopConfirm(true)}
                   disabled={isStopping}
+                  className="transition-colors duration-[var(--duration-fast)]"
                 >
                   {isStopping
                     ? "Stopping..."
@@ -418,7 +422,7 @@ export function AgentView({ agentId }: { agentId: string }) {
                 This agent lost its backing process after a server restart. It cannot be resumed. Dismiss it to remove
                 it from the list.
               </span>
-              <Button variant="tertiaryDestructive" size="24" onClick={() => setShowStopConfirm(true)}>
+              <Button variant="destructive" size="sm" onClick={() => setShowStopConfirm(true)}>
                 Dismiss Agent
               </Button>
             </div>
@@ -443,7 +447,7 @@ export function AgentView({ agentId }: { agentId: string }) {
                   High-risk change for task {g.taskId.slice(0, 8)} requires approval.
                   {g.reasoning && ` Reason: ${g.reasoning}`}
                 </span>
-                <Button variant="tertiary" size="24" onClick={() => setShowApproveConfirm(g.taskId)}>
+                <Button variant="ghost" size="sm" onClick={() => setShowApproveConfirm(g.taskId)}>
                   Review &amp; Approve
                 </Button>
               </div>
@@ -469,9 +473,5 @@ export function AgentView({ agentId }: { agentId: string }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  return (
-    <Badge variant={STATUS_BADGE_VARIANT[status] || "default"} leftDot>
-      {status}
-    </Badge>
-  );
+  return <Badge variant={STATUS_BADGE_VARIANT[status] || "default"}>{STATUS_LABELS[status] ?? status}</Badge>;
 }

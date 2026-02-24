@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentTopology, TopologyNode } from "../api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -147,6 +148,7 @@ function Tooltip({ node }: { node: TopologyNode }) {
 }
 
 export function GraphView() {
+  const router = useRouter();
   const api = useApi();
   const { agents } = useAgentPolling();
   const killSwitch = useKillSwitchContext();
@@ -350,11 +352,11 @@ export function GraphView() {
                     tabIndex={0}
                     transform={`translate(${node.x},${node.y})`}
                     style={{ cursor: "pointer" }}
-                    onClick={() => (window.location.href = `/agents/${node.id}/`)}
+                    onClick={() => router.push(`/agents/${node.id}/`)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        window.location.href = `/agents/${node.id}/`;
+                        router.push(`/agents/${node.id}/`);
                       }
                     }}
                     onMouseEnter={() => setHoveredId(node.id)}

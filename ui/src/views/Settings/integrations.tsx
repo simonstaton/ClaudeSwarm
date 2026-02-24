@@ -1,7 +1,10 @@
 "use client";
 
-import { Alert, Button, PasswordField } from "@fanvue/ui";
 import { useEffect, useRef, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { createApi } from "../../api";
 
 const INTEGRATIONS = [
@@ -100,24 +103,30 @@ export function IntegrationsPanel({ api }: { api: ReturnType<typeof createApi> }
               )}
             </div>
             {description && <p className="text-xs text-zinc-400 mb-2">{description}</p>}
-            <PasswordField
-              value={values[key] ?? ""}
-              onChange={(e) => setValues((prev) => ({ ...prev, [key]: e.target.value }))}
-              placeholder="Leave blank to keep current or clear"
-              size="40"
-              fullWidth
-            />
+            <div className="space-y-1.5">
+              <Label htmlFor={`integration-${key}`} className="sr-only">
+                {label}
+              </Label>
+              <Input
+                id={`integration-${key}`}
+                type="password"
+                value={values[key] ?? ""}
+                onChange={(e) => setValues((prev) => ({ ...prev, [key]: e.target.value }))}
+                placeholder="Leave blank to keep current or clear"
+                className="h-10 w-full"
+              />
+            </div>
           </div>
         ))}
       </div>
 
       <div className="flex gap-2">
-        <Button variant="primary" size="40" onClick={save} disabled={saving || !hasAnyValue} loading={saving}>
-          Save
+        <Button variant="default" size="default" onClick={save} disabled={saving || !hasAnyValue}>
+          {saving ? "Saving..." : "Save"}
         </Button>
       </div>
 
-      {message && <Alert variant={message.startsWith("Failed") ? "error" : "success"}>{message}</Alert>}
+      {message && <Alert variant={message.startsWith("Failed") ? "destructive" : "default"}>{message}</Alert>}
     </div>
   );
 }

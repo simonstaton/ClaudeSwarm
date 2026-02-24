@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@fanvue/ui";
+import { Badge } from "@/components/ui/badge";
 import type { Agent } from "../api";
 import { STATUS_BADGE_VARIANT, STATUS_LABELS, timeAgo } from "../constants";
 import { formatRepo } from "../utils/git";
@@ -25,7 +25,7 @@ export function AgentCard({ agent, onClick, parentName }: AgentCardProps) {
           <h3 className="font-medium text-sm text-zinc-200 group-hover:text-zinc-100 truncate">{agent.name}</h3>
           {agent.role && <span className="text-[11px] text-zinc-400">{agent.role}</span>}
         </div>
-        <Badge variant={STATUS_BADGE_VARIANT[agent.status] || "default"} leftDot className="flex-shrink-0 ml-2">
+        <Badge variant={STATUS_BADGE_VARIANT[agent.status] || "default"} className="flex-shrink-0 ml-2">
           {STATUS_LABELS[agent.status] || agent.status}
         </Badge>
       </div>

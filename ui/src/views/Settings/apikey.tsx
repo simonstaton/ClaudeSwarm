@@ -1,7 +1,10 @@
 "use client";
 
-import { Alert, Button, PasswordField } from "@fanvue/ui";
 import { useEffect, useRef, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { createApi } from "../../api";
 import { Skeleton } from "../../components/Skeleton";
 
@@ -73,19 +76,25 @@ export function ApiKeyPanel({ api }: { api: ReturnType<typeof createApi> }) {
       <div>
         <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Switch API Key</p>
         <div className="flex gap-2">
-          <PasswordField
-            value={newKey}
-            onChange={(e) => setNewKey(e.target.value)}
-            placeholder="sk-or-v1-... or sk-ant-..."
-            size="40"
-            fullWidth
-          />
-          <Button variant="primary" size="40" onClick={switchKey} disabled={!newKey.trim()}>
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <Label htmlFor="api-key-new" className="sr-only">
+              New API key
+            </Label>
+            <Input
+              id="api-key-new"
+              type="password"
+              value={newKey}
+              onChange={(e) => setNewKey(e.target.value)}
+              placeholder="sk-or-v1-... or sk-ant-..."
+              className="h-10 w-full"
+            />
+          </div>
+          <Button variant="default" size="default" onClick={switchKey} disabled={!newKey.trim()}>
             Switch
           </Button>
         </div>
         {message && (
-          <Alert variant={message.includes("Invalid") ? "error" : "success"} className="mt-2">
+          <Alert variant={message.includes("Invalid") ? "destructive" : "default"} className="mt-2">
             {message}
           </Alert>
         )}

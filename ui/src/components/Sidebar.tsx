@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@fanvue/ui";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { Agent } from "../api";
@@ -99,10 +98,19 @@ export function Sidebar({ agents, activeId }: SidebarProps) {
                   : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
               }`}
             >
-              <Badge
-                variant={STATUS_BADGE_VARIANT[agent.status] || "default"}
-                leftDot
-                className="[&]:p-0 [&]:bg-transparent [&]:text-transparent [&]:overflow-hidden [&]:w-1.5 [&]:h-1.5 [&]:min-w-0 mt-1"
+              <span
+                className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${
+                  STATUS_BADGE_VARIANT[agent.status] === "success"
+                    ? "bg-emerald-500"
+                    : STATUS_BADGE_VARIANT[agent.status] === "destructive"
+                      ? "bg-red-500"
+                      : STATUS_BADGE_VARIANT[agent.status] === "warning"
+                        ? "bg-amber-500"
+                        : STATUS_BADGE_VARIANT[agent.status] === "info"
+                          ? "bg-blue-500"
+                          : "bg-zinc-500"
+                }`}
+                aria-hidden
               />
               <div className="min-w-0 flex-1">
                 <span className="truncate block">{agent.name}</span>

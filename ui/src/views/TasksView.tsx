@@ -1,8 +1,8 @@
 "use client";
 
-import { Badge } from "@fanvue/ui";
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Badge } from "@/components/ui/badge";
 import type { OrchestratorEvent, TaskNode, TaskPriority, TaskStatus, TaskSummary } from "../api";
 import { Header } from "../components/Header";
 import { Sidebar } from "../components/Sidebar";

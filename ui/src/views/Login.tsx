@@ -1,7 +1,10 @@
 "use client";
 
-import { Alert, Button, PasswordField } from "@fanvue/ui";
 import { type FormEvent, useEffect, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "../auth";
 
 export function Login() {
@@ -37,26 +40,27 @@ export function Login() {
           <p className="text-sm text-zinc-500 mt-1">Enter your access key to continue</p>
         </div>
 
-        <PasswordField
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder="Access key"
-          autoFocus
-          size="40"
-          fullWidth
-        />
+        <div className="space-y-2">
+          <Label htmlFor="access-key">Access key</Label>
+          <Input
+            id="access-key"
+            type="password"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="Access key"
+            autoFocus
+            className="h-10 w-full"
+          />
+        </div>
 
-        {error && <Alert variant="error">{error}</Alert>}
+        {error && <Alert variant="destructive">{error}</Alert>}
 
         <Button
           type="submit"
           disabled={loading || !key.trim()}
-          loading={loading}
-          variant="primary"
-          size="40"
-          className="w-full"
+          className="w-full h-10 transition-colors duration-[var(--duration-fast)]"
         >
-          Sign in
+          {loading ? "Signing in..." : "Sign in"}
         </Button>
       </form>
     </div>

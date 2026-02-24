@@ -194,7 +194,7 @@ export function LinearWorkflowDialog({ open, onClose, linearConfigured }: Linear
               type="button"
               onClick={handleAuthorize}
               disabled={authorizing}
-              className="px-5 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors disabled:opacity-50"
+              className="px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors duration-[var(--duration-fast)] disabled:opacity-50"
             >
               {authorizing ? "Opening authorization..." : "Authorize Linear"}
             </button>
@@ -245,7 +245,7 @@ export function LinearWorkflowDialog({ open, onClose, linearConfigured }: Linear
               type="button"
               onClick={handleSubmit}
               disabled={submitting || !linearUrl.trim()}
-              className="w-full px-4 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2.5 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors duration-[var(--duration-fast)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? "Starting workflow..." : "Start workflow"}
             </button>
@@ -272,7 +272,7 @@ export function LinearWorkflowDialog({ open, onClose, linearConfigured }: Linear
                           href={wf.prUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-indigo-400 hover:text-indigo-300 mt-0.5 block truncate"
+                          className="text-xs text-primary/80 hover:text-primary mt-0.5 block truncate"
                         >
                           {wf.prUrl}
                         </a>

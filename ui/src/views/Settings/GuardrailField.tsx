@@ -1,6 +1,7 @@
 "use client";
 
-import { TextField } from "@fanvue/ui";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function GuardrailField({
   label,
@@ -15,19 +16,19 @@ export function GuardrailField({
   onChange: (value: number) => void;
   hint: string;
 }) {
+  const id = `guardrail-${label.replace(/\s+/g, "-").toLowerCase()}`;
   return (
     <div>
-      {/* biome-ignore lint/a11y/noLabelWithoutControl: TextField component doesn't support htmlFor pattern */}
-      <label className="text-sm text-zinc-400 mb-1 block">
+      <Label htmlFor={id} className="text-sm text-zinc-400 mb-1 block">
         {label}
         {labelHint != null && <span className="text-xs text-zinc-400 ml-2">({labelHint})</span>}
-      </label>
-      <TextField
+      </Label>
+      <Input
+        id={id}
         type="number"
         value={value.toString()}
         onChange={(e) => onChange(Number(e.target.value))}
-        size="40"
-        fullWidth
+        className="h-10 w-full"
       />
       <p className="text-xs text-zinc-400 mt-1">{hint}</p>
     </div>

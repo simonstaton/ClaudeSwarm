@@ -88,7 +88,7 @@ export function Header({ agentCount, killSwitch }: HeaderProps) {
               type="button"
               onClick={() => setLinearDialogOpen(true)}
               title={linearConfigured ? "Start a Linear issue workflow" : "Connect Linear"}
-              className="px-3 py-1.5 text-sm font-medium bg-indigo-900/40 hover:bg-indigo-800/60 border border-indigo-700/50 hover:border-indigo-500/50 text-indigo-300 hover:text-indigo-100 rounded transition-colors"
+              className="px-3 py-1.5 text-sm font-medium bg-primary/40 hover:bg-primary/60 border border-primary/50 hover:border-primary/70 text-primary-foreground rounded transition-colors duration-[var(--duration-fast)]"
             >
               Linear
             </button>

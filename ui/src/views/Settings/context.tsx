@@ -1,7 +1,8 @@
 "use client";
 
-import { Button, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { ContextFile, createApi } from "../../api";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { TreeListSkeleton } from "../../components/Skeleton";
@@ -130,8 +131,8 @@ export function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
             renderActions={(node) =>
               !node.isFolder && (
                 <Button
-                  variant="text"
-                  size="24"
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={(e) => {
                     e.stopPropagation();
                     setPendingDelete(node.fullPath);
@@ -145,15 +146,14 @@ export function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
           />
         )}
         <div className="flex gap-1 mt-3">
-          <TextField
+          <Input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="file.md or folder/file.md"
             onKeyDown={(e) => e.key === "Enter" && createFile()}
-            size="32"
-            fullWidth
+            className="h-8 flex-1 min-w-0"
           />
-          <Button variant="secondary" size="32" onClick={createFile} disabled={!newName.trim()}>
+          <Button variant="secondary" size="sm" onClick={createFile} disabled={!newName.trim()}>
             +
           </Button>
         </div>
@@ -167,8 +167,8 @@ export function ContextPanel({ api }: { api: ReturnType<typeof createApi> }) {
               <div className="flex items-center gap-2">
                 {editor.message && <span className="text-xs text-zinc-400">{editor.message}</span>}
                 {editor.isDirty && !editor.message && <span className="text-xs text-amber-400">Unsaved</span>}
-                <Button variant="primary" size="24" onClick={saveFile} disabled={editor.saving} loading={editor.saving}>
-                  Save
+                <Button variant="default" size="sm" onClick={saveFile} disabled={editor.saving}>
+                  {editor.saving ? "Saving..." : "Save"}
                 </Button>
               </div>
             </div>

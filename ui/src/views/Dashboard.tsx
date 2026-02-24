@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentTemplate } from "../agentTemplates";
 import { AgentCard } from "../components/AgentCard";
@@ -14,6 +15,7 @@ import { useApi } from "../hooks/useApi";
 import { useKillSwitchContext } from "../killSwitch";
 
 export function Dashboard() {
+  const router = useRouter();
   const api = useApi();
   const { agents, loading, refreshAgents } = useAgentPolling();
   const [creating, setCreating] = useState(false);
@@ -63,7 +65,7 @@ export function Dashboard() {
         if (updated.length > 0) {
           // Navigate to the most recently created agent
           const newest = updated.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-          window.location.href = `/agents/${newest.id}/`;
+          router.push(`/agents/${newest.id}/`);
         }
       } catch (err: unknown) {
         toast(err instanceof Error ? err.message : "Failed to create agent", "error");
@@ -71,7 +73,7 @@ export function Dashboard() {
         setCreating(false);
       }
     },
-    [refreshAgents, api, toast],
+    [refreshAgents, api, toast, router],
   );
 
   const createModeConfig = useMemo(
@@ -108,7 +110,7 @@ export function Dashboard() {
                     <AgentCard
                       key={agent.id}
                       agent={agent}
-                      onClick={() => (window.location.href = `/agents/${agent.id}/`)}
+                      onClick={() => router.push(`/agents/${agent.id}/`)}
                       parentName={agent.parentId ? agents.find((a) => a.id === agent.parentId)?.name : undefined}
                     />
                   ))}

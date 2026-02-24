@@ -1,7 +1,8 @@
 "use client";
 
-import { Alert, Button } from "@fanvue/ui";
 import { useEffect, useRef, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import type { createApi } from "../../api";
 import { Skeleton } from "../../components/Skeleton";
 import { GuardrailField } from "./GuardrailField";
@@ -148,11 +149,11 @@ export function GuardrailsPanel({ api }: { api: ReturnType<typeof createApi> }) 
         </div>
 
         <div className="flex items-center gap-3 pt-4">
-          <Button variant="primary" size="40" onClick={saveSettings} disabled={saving} loading={saving}>
-            Save Changes
+          <Button variant="default" size="default" onClick={saveSettings} disabled={saving}>
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
           {message && (
-            <Alert variant={message.includes("Failed") || message.includes("must") ? "error" : "success"}>
+            <Alert variant={message.includes("Failed") || message.includes("must") ? "destructive" : "default"}>
               {message}
             </Alert>
           )}

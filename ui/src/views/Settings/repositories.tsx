@@ -1,7 +1,10 @@
 "use client";
 
-import { Alert, Button, PasswordField, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { createApi, Repository } from "../../api";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Skeleton } from "../../components/Skeleton";
@@ -179,10 +182,10 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
   if (loadError) {
     return (
       <div className="max-w-2xl space-y-6">
-        <Alert variant="error">Failed to load repositories. Check your connection and try again.</Alert>
+        <Alert variant="destructive">Failed to load repositories. Check your connection and try again.</Alert>
         <Button
           variant="secondary"
-          size="40"
+          size="default"
           onClick={() => {
             setLoading(true);
             refresh();
@@ -217,23 +220,22 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
       <div>
         <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Clone Repository</p>
         <div className="flex gap-2">
-          <TextField
-            value={newUrl}
-            onChange={(e) => setNewUrl(e.target.value)}
-            placeholder="https://github.com/org/repo.git or git@github.com:org/repo.git"
-            onKeyDown={(e) => e.key === "Enter" && startClone()}
-            size="40"
-            fullWidth
-            disabled={cloning}
-          />
-          <Button
-            variant="primary"
-            size="40"
-            onClick={startClone}
-            disabled={!newUrl.trim() || cloning}
-            loading={cloning}
-          >
-            Clone
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <Label htmlFor="repo-url" className="sr-only">
+              Repository URL
+            </Label>
+            <Input
+              id="repo-url"
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+              placeholder="https://github.com/org/repo.git or git@github.com:org/repo.git"
+              onKeyDown={(e) => e.key === "Enter" && startClone()}
+              className="h-10 w-full"
+              disabled={cloning}
+            />
+          </div>
+          <Button variant="default" size="default" onClick={startClone} disabled={!newUrl.trim() || cloning}>
+            {cloning ? "Cloning..." : "Clone"}
           </Button>
         </div>
       </div>
@@ -247,7 +249,7 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
         </pre>
       )}
 
-      {message && <Alert variant={messageType === "error" ? "error" : "success"}>{message}</Alert>}
+      {message && <Alert variant={messageType === "error" ? "destructive" : "default"}>{message}</Alert>}
 
       <div>
         <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Repositories ({repos.length})</p>
@@ -280,7 +282,7 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
                   </div>
                   <Button
                     variant="secondary"
-                    size="24"
+                    size="sm"
                     disabled={repo.hasActiveAgents}
                     title={
                       repo.hasActiveAgents
@@ -294,20 +296,26 @@ export function RepositoriesPanel({ api }: { api: ReturnType<typeof createApi> }
                   </Button>
                 </div>
                 <div className="flex gap-2 items-center">
-                  <PasswordField
-                    value={patValues[repo.name] ?? ""}
-                    onChange={(e) => setPatValues((prev) => ({ ...prev, [repo.name]: e.target.value }))}
-                    placeholder="Git PAT for this repo (optional)"
-                    size="40"
-                    className="flex-1 max-w-sm"
-                  />
+                  <div className="flex-1 max-w-sm space-y-1.5">
+                    <Label htmlFor={`pat-${repo.name}`} className="sr-only">
+                      Git PAT for {repo.name}
+                    </Label>
+                    <Input
+                      id={`pat-${repo.name}`}
+                      type="password"
+                      value={patValues[repo.name] ?? ""}
+                      onChange={(e) => setPatValues((prev) => ({ ...prev, [repo.name]: e.target.value }))}
+                      placeholder="Git PAT for this repo (optional)"
+                      className="h-10 w-full"
+                    />
+                  </div>
                   <Button
                     variant="secondary"
-                    size="40"
+                    size="default"
                     onClick={() => saveRepoPat(repo.name)}
-                    loading={savingPat === repo.name}
+                    disabled={savingPat === repo.name}
                   >
-                    Save PAT
+                    {savingPat === repo.name ? "Saving..." : "Save PAT"}
                   </Button>
                 </div>
               </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { Button, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { ClaudeConfigFile, createApi } from "../../api";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { TreeListSkeleton } from "../../components/Skeleton";
@@ -186,8 +187,8 @@ export function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                         if (node.isFolder || !node.data?.deletable) return null;
                         return (
                           <Button
-                            variant="text"
-                            size="24"
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={(e) => {
                               e.stopPropagation();
                               if (node.data) setPendingDelete(node.data);
@@ -215,8 +216,8 @@ export function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                         </div>
                         {f.deletable && (
                           <Button
-                            variant="text"
-                            size="24"
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={(e) => {
                               e.stopPropagation();
                               setPendingDelete(f);
@@ -233,22 +234,20 @@ export function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
 
                 {group.category === "skills" && (
                   <div className="flex gap-1 mt-2">
-                    <TextField
+                    <Input
                       value={newSkillName}
                       onChange={(e) => setNewSkillName(e.target.value)}
                       placeholder="my-skill or sub/skill"
                       onKeyDown={(e) => e.key === "Enter" && createSkill()}
-                      size="32"
-                      fullWidth
+                      className="h-8 flex-1 min-w-0"
                     />
                     <Button
                       variant="secondary"
-                      size="32"
+                      size="sm"
                       onClick={createSkill}
                       disabled={!newSkillName.trim() || creatingSkill}
-                      loading={creatingSkill}
                     >
-                      +
+                      {creatingSkill ? "..." : "+"}
                     </Button>
                   </div>
                 )}
@@ -278,15 +277,15 @@ export function ConfigPanel({ api }: { api: ReturnType<typeof createApi> }) {
                 {selected.deletable && (
                   <Button
                     variant="secondary"
-                    size="24"
+                    size="sm"
                     onClick={() => setPendingDelete(selected)}
                     className="text-red-400 hover:text-red-300"
                   >
                     Delete
                   </Button>
                 )}
-                <Button variant="primary" size="24" onClick={saveFile} disabled={editor.saving} loading={editor.saving}>
-                  Save
+                <Button variant="default" size="sm" onClick={saveFile} disabled={editor.saving}>
+                  {editor.saving ? "Saving..." : "Save"}
                 </Button>
               </div>
             </div>

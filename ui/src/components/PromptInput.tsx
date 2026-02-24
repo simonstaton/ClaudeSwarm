@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@fanvue/ui";
 import {
   type ChangeEvent,
   type ClipboardEvent,
@@ -11,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Button } from "@/components/ui/button";
 
 export interface Attachment {
   id: string;
@@ -742,10 +742,11 @@ export function PromptInput({
         />
 
         <Button
-          variant="primary"
-          size="40"
+          variant="default"
+          size="default"
           onClick={submit}
           disabled={disabled || (!value.trim() && attachments.length === 0)}
+          className="transition-colors duration-[var(--duration-fast)]"
         >
           {createMode ? "Create" : "Send"}
         </Button>

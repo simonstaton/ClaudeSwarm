@@ -1,18 +1,174 @@
 @import "tailwindcss";
-@source "../../node_modules/@fanvue/ui";
 @source "..";
-@import "@fanvue/ui/styles/theme.css";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
+/* ─── Dark variant: system preference only (no toggle) ───────────────────── */
+@custom-variant dark (prefers-color-scheme: dark);
+
+/* ─── Primitive design tokens ────────────────────────────────────────────
+ * Raw values only. No semantic meaning. Single source for theme values.
+ */
 :root {
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Typography */
   --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Shape */
+  --radius: 0.625rem;
+
+  /* Motion (primitive durations and easings) */
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+
+  /* Primitive palette (oklch) – referenced by semantic tokens only */
+  --palette-neutral-50: oklch(0.985 0 0);
+  --palette-neutral-100: oklch(0.967 0.001 286);
+  --palette-neutral-200: oklch(0.92 0.004 286);
+  --palette-neutral-400: oklch(0.552 0.016 286);
+  --palette-neutral-500: oklch(0.705 0.015 286);
+  --palette-neutral-800: oklch(0.274 0.006 286);
+  --palette-neutral-900: oklch(0.21 0.006 286);
+  --palette-neutral-950: oklch(0.141 0.005 286);
+  --palette-blue-600: oklch(0.488 0.243 264.376);
+  --palette-blue-500: oklch(0.55 0.22 264);
+  --palette-red-600: oklch(0.577 0.245 27.325);
+  --palette-red-700: oklch(0.704 0.191 22.216);
 }
 
+/* ─── Semantic tokens (light) ────────────────────────────────────────────
+ * Intent-based. Components use these; theme switch only changes this layer.
+ */
+:root {
+  --background: var(--palette-neutral-50);
+  --foreground: var(--palette-neutral-950);
+  --card: var(--palette-neutral-50);
+  --card-foreground: var(--palette-neutral-950);
+  --popover: var(--palette-neutral-50);
+  --popover-foreground: var(--palette-neutral-950);
+  --primary: var(--palette-neutral-900);
+  --primary-foreground: var(--palette-neutral-50);
+  --secondary: var(--palette-neutral-100);
+  --secondary-foreground: var(--palette-neutral-900);
+  --muted: var(--palette-neutral-100);
+  --muted-foreground: var(--palette-neutral-500);
+  --accent: var(--palette-neutral-100);
+  --accent-foreground: var(--palette-neutral-900);
+  --destructive: var(--palette-red-600);
+  --border: var(--palette-neutral-200);
+  --input: var(--palette-neutral-200);
+  --ring: var(--palette-neutral-400);
+  --sidebar: var(--palette-neutral-50);
+  --sidebar-foreground: var(--palette-neutral-950);
+  --sidebar-primary: var(--palette-blue-600);
+  --sidebar-primary-foreground: var(--palette-neutral-50);
+  --sidebar-accent: var(--palette-neutral-100);
+  --sidebar-accent-foreground: var(--palette-neutral-900);
+  --sidebar-border: var(--palette-neutral-200);
+  --sidebar-ring: var(--palette-neutral-400);
+  /* Scrollbar (semantic, themeable) */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: var(--palette-neutral-400);
+  --scrollbar-thumb-hover: var(--palette-neutral-500);
+}
+
+/* Chart palette (semantic names, same in both themes for consistency) */
+:root {
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+}
+
+/* ─── Semantic tokens (dark) – respects prefers-color-scheme ───────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--palette-neutral-950);
+    --foreground: var(--palette-neutral-50);
+    --card: var(--palette-neutral-900);
+    --card-foreground: var(--palette-neutral-50);
+    --popover: var(--palette-neutral-900);
+    --popover-foreground: var(--palette-neutral-50);
+    --primary: var(--palette-blue-600);
+    --primary-foreground: var(--palette-neutral-50);
+    --secondary: var(--palette-neutral-800);
+    --secondary-foreground: var(--palette-neutral-50);
+    --muted: var(--palette-neutral-800);
+    --muted-foreground: var(--palette-neutral-500);
+    --accent: var(--palette-neutral-800);
+    --accent-foreground: var(--palette-neutral-50);
+    --destructive: var(--palette-red-700);
+    --border: oklch(1 0 0 / 0.1);
+    --input: oklch(1 0 0 / 0.15);
+    --ring: var(--palette-blue-500);
+    --sidebar: var(--palette-neutral-900);
+    --sidebar-foreground: var(--palette-neutral-50);
+    --sidebar-primary: var(--palette-blue-600);
+    --sidebar-primary-foreground: var(--palette-neutral-50);
+    --sidebar-accent: var(--palette-neutral-800);
+    --sidebar-accent-foreground: var(--palette-neutral-50);
+    --sidebar-border: oklch(1 0 0 / 0.1);
+    --sidebar-ring: var(--palette-blue-500);
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: var(--palette-neutral-800);
+    --scrollbar-thumb-hover: var(--palette-neutral-500);
+  }
+}
+
+/* ─── Tailwind theme bridge (semantic → utilities) ───────────────────────
+ * Single mapping. No duplication of values.
+ */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* ─── Base styles (low specificity: type + single class) ────────────────── */
 body {
   font-family: var(--font-sans);
 }
 
-/* Pointer cursor for interactive elements */
 button,
 a,
 [role="button"],
@@ -20,7 +176,6 @@ summary {
   cursor: pointer;
 }
 
-/* Terminal styling */
 .terminal {
   font-family: var(--font-mono);
   font-size: 13px;
@@ -33,26 +188,26 @@ summary {
   word-break: break-word;
 }
 
-/* Scrollbar styling */
+/* Scrollbar: semantic tokens only; one rule per pseudo-element */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: var(--scrollbar-thumb-hover);
 }
 
-/* Status indicator pulse */
+/* ─── Animations (token-based duration; reduced-motion respected) ───────── */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
@@ -62,45 +217,36 @@ summary {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
-/* Fade-in for new-messages indicator.
-   Uses opacity only - Y-centering is already handled by Tailwind's translate
-   utility so we avoid any translate/transform property conflicts. */
 @keyframes fade-in-up {
   from { opacity: 0; }
-  to   { opacity: 1; }
+  to { opacity: 1; }
 }
 
 .animate-fade-in {
-  animation: fade-in-up 0.2s ease-out;
+  animation: fade-in-up var(--duration-normal) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-in {
+  .animate-fade-in,
+  .modal-enter,
+  .modal-exit,
+  .toast-enter,
+  .toast-exit {
     animation: none;
+    transition: none;
   }
 }
 
-/* Fix @fanvue/ui typography utilities - replace bare "Inter" with proper font-family including fallbacks */
-.typography-body-1-regular,
-.typography-body-1-medium,
-.typography-body-1-semibold,
-.typography-body-2-regular,
-.typography-body-2-medium,
-.typography-body-2-semibold,
-.typography-button-large,
-.typography-button-small,
-.typography-link-large,
-.typography-link-small,
-.typography-link-x-small,
-.typography-caption-regular,
-.typography-caption-semibold,
-.typography-subtitle,
-.typography-heading-4,
-.typography-heading-3,
-.typography-heading-32,
-.typography-heading-2,
-.typography-heading-1,
-.typography-hero,
-.typography-badge {
-  font-family: var(--font-sans) !important;
+/* ─── Base layer (Tailwind base) ────────────────────────────────────────── */
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: var(--ring);
+    outline-offset: 2px;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
 }

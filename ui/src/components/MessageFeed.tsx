@@ -1,8 +1,12 @@
 "use client";
 
-import { Badge, type BadgeVariant, Button, TextField } from "@fanvue/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { AgentMessage, createApi, MessageType } from "../api";
+import type { BadgeVariant } from "../constants";
 import { timeAgo } from "../constants";
 
 interface MessageFeedProps {
@@ -16,7 +20,7 @@ const TYPE_BADGE: Record<string, BadgeVariant> = {
   question: "info",
   info: "default",
   status: "default",
-  interrupt: "error",
+  interrupt: "destructive",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -155,11 +159,11 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
         </div>
         <div className="flex items-center gap-2">
           {messages.length > 0 && (
-            <Button variant="secondary" size="24" onClick={clearAll} disabled={clearing} loading={clearing}>
-              Clear All
+            <Button variant="secondary" size="sm" onClick={clearAll} disabled={clearing}>
+              {clearing ? "Clearing..." : "Clear All"}
             </Button>
           )}
-          <Button variant="secondary" size="24" onClick={() => setComposerOpen(!composerOpen)}>
+          <Button variant="secondary" size="sm" onClick={() => setComposerOpen(!composerOpen)}>
             {composerOpen ? "Cancel" : "New"}
           </Button>
         </div>
@@ -194,22 +198,27 @@ export function MessageFeed({ api, agents }: MessageFeedProps) {
               <option value="interrupt">Interrupt</option>
             </select>
           </div>
-          <TextField
-            value={msgContent}
-            onChange={(e) => setMsgContent(e.target.value)}
-            placeholder="Message content..."
-            size="32"
-            fullWidth
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          />
+          <div className="space-y-1.5">
+            <Label htmlFor="msg-content" className="sr-only">
+              Message content
+            </Label>
+            <Input
+              id="msg-content"
+              value={msgContent}
+              onChange={(e) => setMsgContent(e.target.value)}
+              placeholder="Message content..."
+              className="h-8 w-full"
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            />
+          </div>
           <Button
-            variant="primary"
-            size="24"
+            variant="default"
+            size="sm"
             onClick={sendMessage}
             disabled={!msgContent.trim() || sending}
-            loading={sending}
+            className="transition-colors duration-[var(--duration-fast)]"
           >
-            Send
+            {sending ? "Sending..." : "Send"}
           </Button>
         </div>
       )}

@@ -1,13 +1,13 @@
 "use client";
 
-import type { BadgeVariant } from "@fanvue/ui";
-import { Badge } from "@fanvue/ui";
+import { Badge } from "@/components/ui/badge";
 import type { RiskLevel } from "../api";
+import type { BadgeVariant } from "../constants";
 
 const RISK_VARIANT: Record<RiskLevel, BadgeVariant> = {
   low: "success",
   medium: "warning",
-  high: "error",
+  high: "destructive",
 };
 
 const RISK_LABEL: Record<RiskLevel, string> = {
